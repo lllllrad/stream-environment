@@ -16,8 +16,8 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | --- | --- |
 | Dependency installation and locked build | Passed; exact dependency versions recorded in pnpm-lock.yaml |
 | TypeScript | Passed, `pnpm typecheck` / equivalent direct TypeScript invocation |
-| Domain, contract, HTTP, lease and backup tests | 29 tests passed |
-| Browser workflows and visual regression | 39 tests passed; six interaction/accessibility cases and 33 screenshot comparisons |
+| Domain, contract, HTTP, lease, backup and MCP tests | 34 tests passed |
+| Browser workflows and visual regression | 39 tests passed; six interaction/accessibility cases (including external MCP review) and 33 screenshot comparisons |
 | Source-resolution screenshots | Three presets × ten fixtures: empty, minimal, normal, maximum, maximum work, crowded medium lengths, no optional widgets, tentative event, reported work failure, hidden |
 | 720p visual composition | Three scaled preset screenshots captured and inspected in a browser, separately from OBS |
 | Maximum-text geometry | Fixture text/section boxes stay inside their preset viewport; no auto font shrinking or output scrolling |
@@ -46,16 +46,16 @@ Native preset screenshots are committed in `tests/e2e/dashboard.spec.ts-snapshot
 
 ## Short synthetic soak
 
-Final smoke measurement: 2026-10-09T15:58:24Z (2026-10-10 00:58:24 in Asia/Seoul). Duration 30 seconds; 59 logical updates at a target of two requests/second, with three browser output pages and one operator page. Updates use stable event IDs, matching meaningful bounded UI state rather than appending an unbounded list.
+Final smoke measurement: 2026-10-09T19:04:15Z (2026-10-10 04:04:15 in Asia/Seoul). Duration 30 seconds; 59 logical updates at a target of two requests/second, with three browser output pages and one operator page. Updates use stable event IDs, matching meaningful bounded UI state rather than appending an unbounded list.
 
 | Measurement | Observed value |
 | --- | ---: |
-| Update → all three browser headings, p95 | 34.0 ms |
-| Update → all three browser headings, p99 | 95.5 ms |
-| Hide command → all three outputs absent | 7.5 ms |
+| Update → all three browser headings, p95 | 28.6 ms |
+| Update → all three browser headings, p99 | 83.2 ms |
+| Hide command → all three outputs absent | 9.2 ms |
 | Full/side/lower DOM count at samples | 40 / 36 / 26, constant |
 | Operator DOM count | 203 initially, then 224 as its capped recent audit list fills |
-| Server RSS samples | 135.0 / 108.1 / 112.0 MB (decimal) |
+| Server RSS samples | 128.7 / 106.9 / 108.8 MB (decimal) |
 | Per-output browser JS heap samples | Approximately 3.2–3.6 MB; sampled values, not full process memory |
 
 Measurements include loopback request handling, browser delivery and DOM observation on this host. They do not establish OBS rendering delay, every machine's performance, or long-term memory stability. The raw report is generated at `artifacts/soak-report.json`, which is not a committed promise of repeatable performance.
@@ -72,4 +72,10 @@ These pending checks do not affect the executed automated results; they prevent 
 
 ## Public-output and text-limit follow-up
 
-Creation and updates accept 120 title / 300 goal Unicode code points and reject overflows atomically. Migration preserves published snapshots, controls and operator credentials while removing obsolete output secrets. Anonymous output reads cannot access proposals, context or admin APIs. All 39 browser cases passed across the full regression run plus the corrected legacy-fragment case; the maximum full/full-work screenshots were regenerated and visually inspected.
+Creation and updates accept 120 title / 300 goal Unicode code points and reject overflows atomically. Migration preserves published snapshots, controls and operator credentials while removing obsolete output secrets. Anonymous output reads cannot access proposals, context or admin APIs. All 39 browser cases passed in the final complete regression run; the maximum full/full-work screenshots were regenerated and visually inspected.
+
+## MCP content integration follow-up
+
+Five MCP tests launch the actual stdio adapter through the official SDK client and an isolated HTTP server. They cover capability/schema discovery, scope-filtered context, multi-field content validation and proposals, explicit approval/public projection, receipt replay, publishing grants, locks, revisions, field scopes, mismatched intents, revocation, rejected operator credentials, absent sessions and transport failure. The adapter preserves HTTP errors and does not retry or alter intent/revision.
+
+The browser suite submits actual activity/recap/notice wording through MCP, verifies it is absent from anonymous output before review, approves it through the operator UI with explicit disclosure acknowledgment, and observes those three content types over the public display stream. Setup and examples are English and contain placeholders only. No real external account/host was configured.

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "c1dbeee0-651d-4bc1-9d97-c08a07d30293",
+  "sessionId": "session_replace_from_context",
+  "baseRevision": 12,
+  "intent": "propose",
+  "provenance": {
+    "disclosure": "unknown",
+    "observedAt": "2026-10-10T01:00:00Z",
+    "sourceRefs": ["context:synthetic:042"],
+    "reason": "Suggest viewer-facing wording for the reported comparison phase"
+  },
+  "operations": [
+    {
+      "op": "set_now",
+      "value": {
+        "title": "Comparing the two settings",
+        "detail": "Checking differences under the same conditions.",
+        "status": "in_progress",
+        "next": "Record the conditions that explain the difference"
+      }
+    },
+    {
+      "op": "update_session",
+      "fields": { "recap": ["Preparation is complete; the comparison phase has started."] }
+    },
+    {
+      "op": "set_pin",
+      "value": { "text": "Results are under review; no conclusion has been confirmed.", "expiresAt": null }
+    },
+    {
+      "op": "upsert_event",
+      "event": {
+        "id": "comparison_started",
+        "kind": "topic",
+        "text": "Reported transition from preparation to comparison.",
+        "occurredAt": "2026-10-10T01:00:00Z",
+        "certainty": "tentative"
+      }
+    }
+  ]
+}

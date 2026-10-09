@@ -1,6 +1,6 @@
 # FRAME — Broadcast Activity Dashboard
 
-A local activity dashboard for viewers who join mid-session. External clients submit short, structured updates over HTTP; the operator decides what can be published. Three independent browser outputs receive complete public snapshots over SSE.
+A local activity dashboard for viewers who join mid-session. External clients submit short, structured display content over HTTP or local MCP; the operator decides what can be published. Three independent browser outputs receive complete public snapshots over SSE.
 
 ## Quick start
 
@@ -31,7 +31,7 @@ Interface labels and sample broadcast content are Korean; display time is Asia/S
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
 - Per-producer session/operation/field grants, proposal-only clients, review comparisons, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
 - SQLite transactions for state, audit deltas, receipts, and per-output public snapshots; canonical idempotency, revision checks, observation ordering, atomic batches, and safe restart recovery.
-- Output-scoped HttpOnly cookies, latest-state SSE reconnect, bounded content leases, neutral authentication failures, plain-text rendering, request limits, and producer rate limits.
+- Anonymous read-only outputs, latest-state SSE reconnect, bounded content leases, plain-text rendering, request limits, and producer rate limits.
 - Field-wise undo, full-session sensitive-content scrubbing, consistent backups, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.
 
 Long content uses a compact preset while retaining readable font sizes. Auxiliary content is capped or omitted on the server, and longer lines use ellipses. One notice or work item occupies the auxiliary slot; an explicit work selection overrides the notice. See [decisions](docs/decisions.md).
@@ -83,6 +83,12 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Boundaries
 
-The server binds to loopback only and rejects unconfigured Host/Origin values. Remote/cloud AI access needs a separately implemented HTTPS access configuration; registering a localhost address does not make it cloud-accessible. MCP, media/links/QR, freeform layout editors, numeric progress, and work execution remain P1. There are no runtime model calls or audio/video/transcript collection.
+The server binds to loopback only and rejects unconfigured Host/Origin values. Remote/cloud AI access needs a separately implemented HTTPS access configuration; registering a localhost address does not make it cloud-accessible. Media/links/QR, freeform layout editors, numeric progress, and work execution remain P1. There are no runtime model calls or audio/video/transcript collection.
 
 Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight-hour soak require separate operational validation. The [validation record](docs/verification.md) distinguishes executed checks from pending ones.
+
+## External content proposals with MCP
+
+Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_context`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
+
+The requirements already cover current activity, recap, events, notices and session wording proposals (sections 8–9), independently of reported work items. The optional adapter from section 10.2 is now implemented. Operator approval controls publication; public OBS pages require no login.

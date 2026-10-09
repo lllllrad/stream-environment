@@ -1,5 +1,8 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { Client } from '@modelcontextprotocol/client';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import { scenarios } from '../../fixtures/scenarios.ts';
 import { DIMENSIONS } from '../../src/contracts/display.ts';
 import type { ChangeSet, Control, Operation, Session } from '../../src/contracts/types.ts';
@@ -77,12 +80,28 @@ test('outputs open without credentials, accept legacy URLs and remain hidden aft
   const privateRead = await page.request.get('/api/v1/admin/state'); expect(privateRead.status()).toBe(401);
 });
 
-test('proposal review shows current and proposed values, requires explicit disclosure approval, and locks the result', async ({page,request}) => {
-  const fixture = await seed(request,'minimal'); await fixture.change([{op:'set_now',value:{title:'検討後の公開活動',detail:'運営者が内容を確認しました。',status:'in_progress',next:null}}],'propose');
-  await login(page); await page.getByRole('button',{name:/変更提案|변경 제안/}).click(); await expect(page.getByText('제안 내용',{exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'승인하고 잠금'})).toBeDisabled(); await page.getByLabel('이 내용이 공개 가능한지 검토하고 명시적으로 허용합니다.').check(); await page.getByRole('button',{name:'승인하고 잠금'}).click(); await expect(page.getByText('검토할 제안이 없습니다',{exact:true})).toBeVisible();
-  const current = await api(request,`/sessions/${fixture.session.id}/context`); expect(current.now.title).toBe('検討後の公開活動'); expect(current.locks.some((l:any)=>l.path==='/now')).toBeTruthy();
+test('external MCP content proposals stay private until UI approval and then render on OBS outputs', async ({page,request,context}) => {
+  const fixture = await seed(request,'minimal');
+  const client = new Client({name:'browser-content-test',version:'1.0.0'});
+  const transport = new StdioClientTransport({command:process.execPath,args:[resolve('scripts/mcp.ts')],env:{...getDefaultEnvironment(),DASHBOARD_URL:'http://127.0.0.1:4311',DASHBOARD_PRODUCER_TOKEN:fixture.producer.token},stderr:'pipe'});
+  await client.connect(transport);
+  const display = await context.newPage();
+  try {
+    await display.setViewportSize({width:1920,height:1080}); await display.goto(await fixture.outputUrl('full')); await expect(display.locator('.broadcast')).toBeVisible();
+    const state = await client.callTool({name:'get_context',arguments:{}});
+    const current = (state.structuredContent as any).session;
+    const result = await client.callTool({name:'propose',arguments:{schemaVersion:'1.0',requestId:randomUUID(),sessionId:current.id,baseRevision:current.revision,intent:'propose',provenance:{disclosure:'restricted',observedAt:new Date().toISOString(),sourceRefs:['fixture:private'],reason:'External viewer-facing wording'},operations:[{op:'set_now',value:{title:'외부 시스템이 제안한 활동',detail:'운영자가 내용 확인 후 공개합니다.',status:'in_progress',next:null}},{op:'update_session',fields:{recap:['외부 시스템이 방송 맥락을 제안했습니다.']}},{op:'set_pin',value:{text:'제안한 안내 문구도 표시할 수 있습니다.',expiresAt:null}}]}});
+    expect(result.isError).not.toBeTruthy(); expect((result.structuredContent as any).outcome).toBe('proposed');
+    expect(await display.content()).not.toContain('외부 시스템이 제안한 활동');
+    await login(page); await page.getByRole('button',{name:/^변경 제안/}).click(); await expect(page.getByText('제안 내용',{exact:true})).toHaveCount(3);
+    await expect(page.getByRole('button',{name:'승인하고 잠금'})).toBeDisabled(); await page.getByLabel('이 내용이 공개 가능한지 검토하고 명시적으로 허용합니다.').check(); await page.getByRole('button',{name:'승인하고 잠금'}).click(); await expect(page.getByText('검토할 제안이 없습니다',{exact:true})).toBeVisible();
+    await expect(display.locator('.broadcast h2')).toHaveText('외부 시스템이 제안한 활동');
+    await expect(display.locator('.broadcast-recap')).toContainText('외부 시스템이 방송 맥락을 제안했습니다.');
+    await expect(display.locator('.broadcast-pin')).toContainText('제안한 안내 문구도 표시할 수 있습니다.');
+    const approved = await api(request,`/sessions/${fixture.session.id}/context`); expect(approved.locks.some((l:any)=>l.path==='/now')).toBeTruthy();
+  } finally { await client.close(); await display.close(); }
 });
+
 test('keyboard navigation, dialog Escape, reduced motion, and broadcast text contrast',async ({page,request})=>{
   await seed(request,'normal');await login(page);await page.emulateMedia({reducedMotion:'reduce'});
   const create=page.getByRole('button',{name:'새 세션',exact:true});await create.focus();await page.keyboard.press('Enter');await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(create).toBeFocused();

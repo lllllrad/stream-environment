@@ -22,3 +22,5 @@ Reference APIs: [Node.js SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite
 ## Follow-up contract changes (2026-10-10)
 
 The user explicitly requested larger session text limits and public OBS output. Session titles now accept 120 Unicode code points and goals 300; create, update, capability discovery, schemas and UI use the same limits. Display authentication in the original specification is superseded for the read-only broadcast projection. Producer and operator authentication still applies. Existing snapshots are preserved during migration.
+
+The optional MCP adapter from requirements section 10.2 is promoted from P1 to implemented follow-up work. It uses the official pinned SDK with stdio and forwards to authenticated HTTP, reusing the same ChangeSet schema and domain command handler. It exposes no operator tools and rejects operator credentials before reading context. The adapter suggests actual display text and never approves its own proposals or executes reported work.

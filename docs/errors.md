@@ -4,7 +4,7 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 
 | Code | HTTP | Recovery |
 | --- | ---: | --- |
-| `UNAUTHORIZED` | 401 | Authenticate with a valid non-revoked credential for this role/screen. |
+| `UNAUTHORIZED` | 401 | Authenticate with a valid non-revoked credential for the operator or producer role. Public display reads require no credential. |
 | `FORBIDDEN` | 403 | Ask the operator to review the required permission scope. |
 | `OPERATION_FORBIDDEN`, `FIELD_FORBIDDEN` | 403 | Restrict the command to registered operations/paths. |
 | `ITEM_OWNER_CONFLICT` | 403 | Do not overwrite another producer's item without an explicit grant. |
@@ -34,3 +34,17 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `SERVICE_UNAVAILABLE` | 503 | Check `/health/ready` and storage. Retry the same request ID/body for an uncertain committed result. |
 
 Only 429/503 responses advertise `retryable: true`. A rejected apply never partially applies, silently changes into a proposal, removes a lock, or weakens disclosure rules.
+
+## MCP adapter errors
+
+HTTP errors retain the same structured envelope inside an MCP tool result with `isError: true`. Adapter-specific errors include:
+
+| Code | Recovery |
+| --- | --- |
+| `INVALID_CONFIGURATION` | Set a local HTTP origin and a registered producer token in the host's private environment. |
+| `PRODUCER_TOKEN_REQUIRED` | Replace an operator credential with a producer token; no private context was returned. |
+| `DASHBOARD_UNAVAILABLE` | Start/check the local dashboard and retry the read. |
+| `REQUEST_OUTCOME_UNKNOWN` | A submission may have been saved. Resend the exact ChangeSet and request ID to recover its receipt. |
+| `ADAPTER_ERROR` | Check local configuration and the shared contract; no internal stack is returned. |
+
+SDK argument validation errors are tool errors before HTTP submission and may use the SDK's own message format. Neither the adapter nor server automatically changes an apply into a proposal or blindly retries a revision conflict.

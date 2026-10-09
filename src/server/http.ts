@@ -108,7 +108,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         const auth = actor(req); authenticated = auth.actor;
         const isAdmin = path.startsWith('/api/v1/admin/');
         if (isAdmin) ensure(auth.actor.role === 'operator', 'FORBIDDEN', 'Operator permission is required.', 403);
-        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, limits: LIMITS, leaseMs: engine.leaseMs });
+        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, limits: LIMITS, leaseMs: engine.leaseMs });
         if (get && path === '/api/v1/sessions/current') {
           const c = engine.control(); const s = c.activeSessionId ? engine.readSession(auth.actor, c.activeSessionId) : null;
           return send(res, { session: s ? { id: s.id, status: s.status, revision: s.revision } : null });

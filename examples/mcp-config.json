@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "broadcast-content": {
+      "command": "node",
+      "args": ["C:/path/to/stream-environment/scripts/mcp.ts"],
+      "env": {
+        "DASHBOARD_URL": "http://127.0.0.1:4310",
+        "DASHBOARD_PRODUCER_TOKEN": "REPLACE_IN_YOUR_PRIVATE_HOST_CONFIGURATION"
+      }
+    }
+  }
+}

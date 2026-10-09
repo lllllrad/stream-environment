@@ -1,6 +1,6 @@
 # External client guide
 
-The dashboard receives structured, public-ready text. It does not summarize transcripts, listen to calls, fetch source URLs, execute work, or change streaming-platform state. HTTP is the P0 integration contract; an MCP adapter is optional P1.
+The dashboard receives structured, public-ready text. It does not summarize transcripts, listen to calls, fetch source URLs, execute work, or change streaming-platform state. HTTP is the core integration contract; the local stdio [MCP adapter](mcp.md) exposes the same content operations and review flow.
 
 ## Connection workflow
 
@@ -86,3 +86,7 @@ Keep tokens out of URLs, logs, frontend bundles, and public text. `sourceRefs` a
 ## Account-free demo
 
 `pnpm demo` creates a synthetic session and restricted-to-that-session publishing producer. It writes `.data/demo-producer.json` and `.data/demo-outputs.json` privately. It refuses to replace an existing running session. `pnpm demo --exercise` demonstrates receipt replay, conflicting request IDs, server locks, proposals, held changes, withdrawal, and emergency hide. It deliberately leaves a locked activity and hidden outputs for review. `pnpm demo --end` ends only the recorded currently active demo session.
+
+## Content suggestions are not limited to work items
+
+The original requirements (sections 8–9) explicitly include proposed viewer-facing wording. Use `set_now` for current activity, `update_session.fields.recap` for accumulated context, `upsert_event` for reported topics/decisions/results, `set_pin` for viewer notices, and scoped session title/goal updates where granted. `upsert_work_item` is just one optional content type. See the [multi-field content proposal](../examples/content-proposal.json). A producer with automatic publication disabled can still submit these actual content proposals for operator review.

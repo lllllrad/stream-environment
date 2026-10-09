@@ -3829,6 +3829,12 @@
           "schemaVersion": {
             "const": "1.0"
           },
+          "role": {
+            "enum": [
+              "operator",
+              "producer"
+            ]
+          },
           "operations": {
             "type": "array",
             "items": {
@@ -3856,6 +3862,7 @@
         },
         "required": [
           "schemaVersion",
+          "role",
           "operations",
           "allowedPaths",
           "canAutoPublish",
