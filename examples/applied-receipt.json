@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "requestId": "4303598d-2bdf-4c5a-9ea7-abcd3806dc01",
+  "outcome": "applied",
+  "sessionId": "session_demo_01",
+  "appliedRevision": 13,
+  "publication": "published",
+  "changedPaths": [
+    "/now",
+    "/events/event_comparison_started"
+  ],
+  "warnings": []
+}

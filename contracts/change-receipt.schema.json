@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ChangeReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "const": true
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "outcome": {
+      "enum": [
+        "applied",
+        "proposed",
+        "no_change"
+      ]
+    },
+    "sessionId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "appliedRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "publication": {
+      "enum": [
+        "published",
+        "held",
+        "hidden",
+        "not_applicable"
+      ]
+    },
+    "changedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 240
+      }
+    },
+    "proposalId": {
+      "type": "string",
+      "maxLength": 100
+    }
+  },
+  "required": [
+    "ok",
+    "requestId",
+    "outcome",
+    "sessionId",
+    "appliedRevision",
+    "publication",
+    "changedPaths",
+    "warnings"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "error": {
+    "code": "FIELD_LOCKED",
+    "message": "An operator lock protects this field.",
+    "paths": [
+      "/now"
+    ],
+    "currentRevision": 14,
+    "retryable": false,
+    "recovery": "Read current context; leave the lock intact and submit a new proposal if appropriate."
+  }
+}

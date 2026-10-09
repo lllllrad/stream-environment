@@ -1,0 +1,391 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PublicSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "screenId": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "preset": {
+      "enum": [
+        "full",
+        "side",
+        "lower"
+      ]
+    },
+    "publicRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sessionId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 80
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mode": {
+      "enum": [
+        "auto",
+        "hold",
+        "hidden"
+      ]
+    },
+    "leaseMs": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 30000
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicContent"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compact": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "screenId",
+    "preset",
+    "publicRevision",
+    "sessionId",
+    "mode",
+    "leaseMs",
+    "publishedAt",
+    "content"
+  ],
+  "$defs": {
+    "Now": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "status": {
+          "enum": [
+            "preparing",
+            "in_progress",
+            "blocked",
+            "paused",
+            "complete"
+          ]
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 60
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "status"
+      ]
+    },
+    "Event": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "kind": {
+          "enum": [
+            "topic",
+            "progress",
+            "decision",
+            "result",
+            "correction"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "certainty": {
+          "enum": [
+            "confirmed",
+            "tentative"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text",
+        "occurredAt",
+        "certainty"
+      ]
+    },
+    "Pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "expiresAt"
+      ]
+    },
+    "Work": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "publicResult": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status",
+        "publicResult"
+      ]
+    },
+    "PublicContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "status": {
+          "enum": [
+            "prepared",
+            "active",
+            "paused",
+            "ended"
+          ]
+        },
+        "goal": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "now": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Now"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recap": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/Event"
+          }
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workItem": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Work"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "status",
+        "now"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "preset": {
+            "const": "lower"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "status": {
+                    "enum": [
+                      "prepared",
+                      "active",
+                      "paused",
+                      "ended"
+                    ]
+                  },
+                  "now": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "maxLength": 48
+                          },
+                          "status": {
+                            "enum": [
+                              "preparing",
+                              "in_progress",
+                              "blocked",
+                              "paused",
+                              "complete"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "title",
+                          "status"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "status",
+                  "now"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "hidden"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "type": "null"
+          },
+          "sessionId": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "4303598d-2bdf-4c5a-9ea7-abcd3806dc01",
+  "sessionId": "session_demo_01",
+  "baseRevision": 12,
+  "intent": "apply",
+  "provenance": {
+    "disclosure": "public",
+    "observedAt": "2026-10-09T13:20:00Z",
+    "sourceRefs": [
+      "context:demo:042"
+    ],
+    "reason": "Preparation is complete; the comparison begins"
+  },
+  "operations": [
+    {
+      "op": "set_now",
+      "value": {
+        "title": "Comparing the two settings",
+        "detail": "Checking differences under the same conditions.",
+        "status": "in_progress",
+        "next": "Record conditions that explain the difference"
+      }
+    },
+    {
+      "op": "upsert_event",
+      "event": {
+        "id": "event_comparison_started",
+        "kind": "topic",
+        "text": "Preparation is complete; the comparison has started.",
+        "occurredAt": "2026-10-09T13:20:00Z",
+        "certainty": "confirmed"
+      }
+    }
+  ]
+}

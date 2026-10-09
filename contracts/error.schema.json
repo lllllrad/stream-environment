@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Error",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "const": false
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "currentRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "recovery": {
+          "type": "string",
+          "maxLength": 400
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "paths",
+        "retryable",
+        "recovery"
+      ]
+    }
+  },
+  "required": [
+    "ok",
+    "error"
+  ]
+}

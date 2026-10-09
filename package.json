@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "demo": "node scripts/demo.ts",
+    "demo": "node --env-file-if-exists=.env scripts/demo.ts",
     "backup": "node --env-file-if-exists=.env scripts/backup.ts",
     "soak": "node scripts/soak.ts",
     "contracts": "node scripts/generate-contracts.mjs"
