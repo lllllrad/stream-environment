@@ -25,7 +25,7 @@ export class Engine {
   output(id: string): Output { const o = this.store.get<Output>(`output:${id}`); ensure(o, 'NOT_FOUND', 'Output not found.', 404); return o; }
   actor(id: string): Actor { const a = this.store.get<Actor>(`producer:${id}`); ensure(a && !a.revoked, 'UNAUTHORIZED', 'Producer credential is revoked.', 401); return a; }
   readSession(actor: Actor, id: string): Session {
-    if (actor.role === 'producer') ensure(actor.allowedSessions?.includes('*') || actor.allowedSessions?.includes(id), 'FORBIDDEN', 'Producer cannot access this session.', 403);
+    if (actor.role === 'producer') { actor = this.actor(actor.id); ensure(actor.allowedSessions?.includes('*') || actor.allowedSessions?.includes(id), 'FORBIDDEN', 'Producer cannot access this session.', 403); }
     return this.session(id);
   }
   private publish(): string[] {
@@ -169,6 +169,7 @@ export class Engine {
     return null;
   }
   validate(actor: Actor, id: string, raw: unknown): unknown {
+    if (actor.role === 'producer') actor = this.actor(actor.id);
     const { change, receipt } = this.prepare(actor, id, raw);
     if (receipt) return { ok: true, receipt, replay: true };
     const candidate = this.candidate(actor, change);
@@ -187,7 +188,7 @@ export class Engine {
         result = { ok: true, requestId: change.requestId, outcome: 'proposed', sessionId: id, appliedRevision: candidate.before.revision, publication: 'not_applicable', changedPaths: candidate.paths, proposalId: proposal.id, warnings: ['Saved for operator review; not published.'] };
       } else {
         this.store.put(`session:${id}`, candidate.after);
-        result = { ok: true, requestId: change.requestId, outcome: candidate.changed.length ? 'applied' : 'no_change', sessionId: id, appliedRevision: candidate.after.revision, publication: this.publication(), changedPaths: candidate.changed, warnings: [] };
+        result = { ok: true, requestId: change.requestId, outcome: candidate.changed.length ? 'applied' : 'no_change', sessionId: id, appliedRevision: candidate.after.revision, publication: this.control().activeSessionId === id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, warnings: [] };
         if (candidate.changed.length) this.log(actor, candidate.before, candidate.after, change.provenance.reason, candidate.changed, change.requestId);
       }
       this.store.saveReceipt(actor.id, id, change.requestId, digest, result);
@@ -197,14 +198,15 @@ export class Engine {
   }
   publication(): 'published' | 'held' | 'hidden' { return this.control().mode === 'auto' ? 'published' : this.control().mode === 'hold' ? 'held' : 'hidden'; }
   private log(actor: Actor, before: Session | null, after: Session | null, reason: string, paths: string[], requestId: string | null): void {
-    this.store.audit({ sessionId: after?.id ?? before?.id ?? null, actorId: actor.id, reason, receivedAt: stamp(), requestId, revision: after?.revision ?? null, publication: this.publication(), changedPaths: paths, before, after });
+    const delta = (s: Session | null): Session | null => s ? { ...s, events: s.events.filter(e => paths.includes(`/events/${e.id}`)), workItems: s.workItems.filter(w => paths.includes(`/workItems/${w.id}`)), locks: s.locks.filter(l => paths.includes(l.path)) } : null;
+    this.store.audit({ sessionId: after?.id ?? before?.id ?? null, actorId: actor.id, reason, receivedAt: stamp(), requestId, revision: after?.revision ?? null, publication: after && this.control().activeSessionId !== after.id ? 'not_applicable' : this.publication(), changedPaths: paths, before: delta(before), after: delta(after) });
   }
   contextFrom(actor: Actor, s: Session): unknown {
     if (actor.role === 'operator') return s;
     const allowed = (p: string) => pathAllowed(p, actor.allowedPaths);
     return { id: s.id, status: s.status, revision: s.revision, title: allowed('/session/title') ? s.title : undefined, goal: allowed('/session/goal') ? s.goal : undefined, recap: allowed('/session/recap') ? s.recap : undefined, now: allowed('/now') ? s.now : undefined, pin: allowed('/pin') ? s.pin : undefined, locks: s.locks.filter(l => allowed(l.path)).map(l => ({ path: l.path })), events: s.events.filter(e => allowed(`/events/${e.id}`)).slice(-30).map(e => ({ id: e.id, kind: e.kind, text: e.text, occurredAt: e.occurredAt, certainty: e.certainty, retractedAt: e.retractedAt })), workItems: s.workItems.filter(w => allowed(`/workItems/${w.id}`)).map(w => ({ id: w.id, title: w.title, status: w.status, publicResult: w.publicResult, retractedAt: w.retractedAt })) };
   }
-  context(actor: Actor, id: string): unknown { return this.contextFrom(actor, this.readSession(actor, id)); }
+  context(actor: Actor, id: string): unknown { if (actor.role === 'producer') actor = this.actor(actor.id); return this.contextFrom(actor, this.readSession(actor, id)); }
   locks(input: { sessionId: string; path: string; locked: boolean; expectedRevision: number; reason?: string }): Session {
     return this.commit(() => {
       const s = this.session(input.sessionId), before = structuredClone(s); this.checkRevision(s, input.expectedRevision);

@@ -63,6 +63,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
   }
   engine.onPublish = ids => { for (const c of clients) if (ids.includes(c.screenId)) streamSnapshot(c); };
   const timer = setInterval(() => {
+    try {
     engine.tick();
     for (const c of clients) {
       const auth = engine.store.get<Credential>(`auth:${c.credentialHash}`), output = engine.output(c.screenId);
@@ -70,6 +71,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       c.response.write(`event: heartbeat\ndata: ${JSON.stringify({ publicRevision: output.snapshot.publicRevision, leaseMs: engine.leaseMs })}\n\n`);
     }
     for (const c of engine.store.list<Credential>('auth:')) if (c.expiresAt <= Date.now()) engine.store.delete(`auth:${c.tokenHash}`);
+    } catch { stats.rejected.SERVICE_UNAVAILABLE = (stats.rejected.SERVICE_UNAVAILABLE ?? 0) + 1; }
   }, options.heartbeatMs ?? 5000);
   timer.unref();
   const server = createServer(async (req, res) => {

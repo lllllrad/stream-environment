@@ -13,5 +13,8 @@ The supplied requirements describe the product, not instructions for the develop
 | Dependencies | Exact package versions and a pnpm lockfile; no runtime LLM calls, external fonts, or remotely loaded assets. |
 | P1 | MCP, links/images/QR, numeric progress, arbitrary layouts, export UI, and real work execution are deferred as specified. |
 | Validation | Automated domain, HTTP, browser, and screenshot checks are recorded separately from actual OBS review and the eight-hour soak. Unperformed checks are never claimed as passed. |
+| Dense layouts | Long content activates a compact layout without reducing minimum text sizes. Full output keeps one recent event; side output omits the next activity and timeline. Recap line limits remain fixed. Omitted widgets are removed from the public DTO. |
+| Auxiliary slot | Full and side outputs show one notice or work item. A pinned notice takes priority unless the operator explicitly selects a work item. This narrows the initial full preset to prevent maximum-length content from colliding. |
+| History storage | Audit records retain only the affected event/work/lock entries, plus bounded session fields. Undo compares changed fields and patches them as a new revision; it never replaces the entire session. |
 
 Reference APIs: [Node.js SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html), [React createRoot](https://react.dev/reference/react-dom/client/createRoot), and [Ajv JSON Schema](https://ajv.js.org/json-schema.html).

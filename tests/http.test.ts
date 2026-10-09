@@ -6,9 +6,9 @@ import { Engine } from '../src/domain/engine.ts';
 import { createHttp } from '../src/server/http.ts';
 import { change, now, event } from './helpers.ts';
 
-async function setupHttp() {
+async function setupHttp(options: {producerRate?:number;producerBurst?:number} = {}) {
   const store = new Store(':memory:'), engine = new Engine(store), token = 'test-operator-credential-long-enough';
-  const app = createHttp(engine, { adminToken: token, heartbeatMs: 100, producerRate: 100, producerBurst: 100 });
+  const app = createHttp(engine, { adminToken: token, heartbeatMs: 100, producerRate: 100, producerBurst: 100, ...options });
   await new Promise<void>(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const port = (app.server.address() as {port:number}).port, base = `http://127.0.0.1:${port}`;
   const call = async (path: string, data?: any, credential = token, cookie?: string, csrf?: string) => {
@@ -86,4 +86,13 @@ test('HTTP: revoked producer is rejected even for a previously successful receip
     x.engine.revoke(x.publisher.producer.id, x.engine.control().controlRevision);
     assert.equal((await x.call(endpoint, request, x.publisher.token)).status, 401);
   } finally { await x.close(); }
+});
+test('HTTP: producer token bucket rejects requests above burst quota without changing content', async () => {
+  const x = await setupHttp({producerRate:2,producerBurst:2});
+  try {
+    assert.equal((await x.call('/api/v1/capabilities',undefined,x.publisher.token)).status,200);
+    assert.equal((await x.call(`/api/v1/sessions/${x.session.id}/context`,undefined,x.publisher.token)).status,200);
+    const rejected=await x.call('/api/v1/producers/heartbeat',{},x.publisher.token);
+    assert.equal(rejected.status,429);assert.equal(rejected.body.error.code,'RATE_LIMITED');assert.equal(x.engine.session(x.session.id).revision,x.session.revision);
+  } finally {await x.close();}
 });

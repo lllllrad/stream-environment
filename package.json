@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24.0.0 <25" },
-  "packageManager": "pnpm@10.28.0",
+  "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "node scripts/build.mjs && node --watch --env-file-if-exists=.env src/server/main.ts",
     "build": "node scripts/build.mjs",
@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "demo": "node scripts/demo.ts",
     "backup": "node --env-file-if-exists=.env scripts/backup.ts",
-    "soak": "node scripts/soak.ts"
+    "soak": "node scripts/soak.ts",
+    "contracts": "node scripts/generate-contracts.mjs"
   },
   "dependencies": {
     "ajv": "8.17.1",
