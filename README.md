@@ -29,7 +29,7 @@ Interface labels and sample broadcast content are Korean; display time is Asia/S
 - Session creation, start, pause, resume, and end; six kinds of broadcast information.
 - Manual edits with persistent server-enforced field locks, explicit unlock, event/work correction and withdrawal, pinned notice expiry, and work selection.
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
-- Per-producer session/operation/field grants, proposal-only clients, review comparisons, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
+- Per-producer session/operation/field grants, proposal-only clients, review comparisons and rendered proposal previews, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
 - SQLite transactions for state, audit deltas, receipts, and per-output public snapshots; canonical idempotency, revision checks, observation ordering, atomic batches, and safe restart recovery.
 - Anonymous read-only outputs, latest-state SSE reconnect, bounded content leases, plain-text rendering, request limits, and producer rate limits.
 - Field-wise undo, full-session sensitive-content scrubbing, consistent backups, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.

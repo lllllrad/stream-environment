@@ -208,3 +208,31 @@ test('public-output migration preserves snapshots, controls and operator credent
     assert.equal(x.store.get('auth:display'), undefined); assert.ok(x.store.get('auth:operator'));
   } finally { x.store.close(); }
 });
+test('rendered proposal previews simulate approval against latest content without changing hidden outputs, disclosure or receipts', () => {
+  const x = setup();
+  try {
+    apply(x.engine, x.producer, x.session.id, [now('Original activity')]);
+    const submitted = apply(x.engine, x.producer, x.session.id, [now('Private suggested activity'), { op: 'set_pin', value: { text: 'Suggested notice', expiresAt: null } }], { intent: 'propose', provenance: { disclosure: 'restricted', observedAt: new Date().toISOString(), sourceRefs: ['private:ref'], reason: 'PRIVATE_REASON' } });
+    apply(x.engine, x.producer, x.session.id, [{ op: 'update_session', fields: { recap: ['New context after submission'] } }]);
+    x.engine.setControl({ mode: 'hidden', expectedControlRevision: x.engine.control().controlRevision });
+    const before = x.engine.session(x.session.id), proposal = x.store.get<Proposal>(`proposal:${submitted.proposalId}`)!, audit = x.store.audits(), outputs = x.store.list('output:');
+    for (const preset of ['full','side','lower']) {
+      const preview = x.engine.proposalPreview(proposal.id, `main-${preset}`);
+      assert.equal(preview.stale, true); assert.equal(preview.sessionRevision, before.revision); assert.equal(preview.baseRevision, proposal.change.baseRevision);
+      assert.equal(preview.publication, 'hidden'); assert.equal(preview.after.mode, 'auto');
+      assert.equal(preview.before.content!.now!.title, 'Original activity'); assert.equal(preview.after.content!.now!.title, 'Private suggested activity');
+      assert.ok(!JSON.stringify(preview).includes('PRIVATE_REASON')); assert.ok(!JSON.stringify(preview).includes('sourceRefs'));
+      if (preset === 'lower') { assert.equal(preview.after.content!.pin, undefined); assert.equal(preview.after.content!.now!.detail, undefined); }
+      else { assert.equal(preview.after.content!.pin!.text, 'Suggested notice'); assert.deepEqual(preview.after.content!.recap, ['New context after submission']); }
+    }
+    assert.deepEqual(x.engine.session(x.session.id), before); assert.deepEqual(x.store.get(`proposal:${proposal.id}`), proposal); assert.deepEqual(x.store.audits(), audit); assert.deepEqual(x.store.list('output:'), outputs);
+    assert.throws(() => x.engine.decision(proposal.id, { decision: 'approve', expectedProposalRevision: 0, expectedRevision: before.revision }), code('STALE_PROPOSAL'));
+    assert.throws(() => x.engine.decision(proposal.id, { decision: 'approve', expectedProposalRevision: 0, expectedRevision: before.revision, acknowledgeStale: true }), code('DISCLOSURE_REVIEW_REQUIRED'));
+    const expected = x.engine.proposalPreview(proposal.id).after.content;
+    x.engine.decision(proposal.id, { decision: 'approve', expectedProposalRevision: 0, expectedRevision: before.revision, acknowledgeStale: true, allowDisclosure: true });
+    assert.equal(x.engine.output('main-full').snapshot.content, null);
+    x.engine.setControl({ mode: 'auto', expectedControlRevision: x.engine.control().controlRevision, confirmRestore: true });
+    assert.deepEqual(x.engine.output('main-full').snapshot.content, expected);
+    assert.throws(() => x.engine.proposalPreview(proposal.id), code('PROPOSAL_CONFLICT'));
+  } finally { x.store.close(); }
+});

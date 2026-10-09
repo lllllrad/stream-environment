@@ -2282,6 +2282,121 @@
         }
       }
     },
+    "/api/v1/admin/proposals/{id}/preview": {
+      "get": {
+        "summary": "Render hypothetical before/after content for private operator review",
+        "description": "Read-only simulation of approval against the current session revision. Uses normal preset projection even during hold/hidden, labeled hypothetical. Does not approve, promote disclosure, create a receipt/lock or publish. Stale proposal baseRevision remains unchanged.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "screenId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/admin/proposals/{id}/decision": {
       "post": {
         "summary": "Review, approve or reject a proposal",
@@ -4746,6 +4861,63 @@
           "proposals",
           "audit",
           "diagnostics"
+        ]
+      },
+      "ProposalPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "proposalRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessionRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "baseRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "publication": {
+            "enum": [
+              "published",
+              "held",
+              "hidden",
+              "not_applicable"
+            ]
+          },
+          "changedPaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "before": {
+            "$ref": "#/components/schemas/PublicSnapshot"
+          },
+          "after": {
+            "$ref": "#/components/schemas/PublicSnapshot"
+          }
+        },
+        "required": [
+          "proposalId",
+          "proposalRevision",
+          "sessionRevision",
+          "baseRevision",
+          "stale",
+          "publication",
+          "changedPaths",
+          "before",
+          "after"
         ]
       }
     }

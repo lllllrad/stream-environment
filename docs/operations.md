@@ -47,7 +47,7 @@ Register each client with the narrowest session, operation, and field grants it 
 
 Tokens are displayed once; store them in the client's secret store. Revoke a token from **Producers** to immediately block reads, writes, and receipt replays. The server stores hashes, not plaintext tokens. A heartbeat reports connectivity, while `observedAt` describes content freshness. Idle content does not imply a disconnected client. Send heartbeats every five seconds when connected.
 
-Review compares proposed values against current values. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
+Review compares proposed values against current values. Open **Broadcast layout preview** to compare the current editorial content and the proposed result through the full, side or lower renderer. It is a private hypothetical preview, including while outputs are held/hidden; opening it never publishes or approves the proposal. Stale proposals are simulated against the latest session revision without altering their original base revision. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
 
 ## Public output and reconnect
 

@@ -94,6 +94,14 @@ test('external MCP content proposals stay private until UI approval and then ren
     expect(result.isError).not.toBeTruthy(); expect((result.structuredContent as any).outcome).toBe('proposed');
     expect(await display.content()).not.toContain('외부 시스템이 제안한 활동');
     await login(page); await page.getByRole('button',{name:/^변경 제안/}).click(); await expect(page.getByText('제안 내용',{exact:true})).toHaveCount(3);
+    await page.getByRole('button',{name:'송출 레이아웃 미리보기',exact:true}).click();
+    const visual = page.getByRole('region',{name:'제안 송출 미리보기'});
+    await expect(visual.locator('.proposal-visual-columns>div').nth(1).locator('.broadcast h2')).toHaveText('외부 시스템이 제안한 활동');
+    expect(await display.content()).not.toContain('외부 시스템이 제안한 활동');
+    await visual.getByRole('button',{name:'사이드 패널',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','side');
+    await visual.getByRole('button',{name:'하단 바',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','lower'); await expect(visual.locator('.broadcast-recap')).toHaveCount(0);
+    await visual.getByRole('button',{name:'전체 화면',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','full');
+    await page.screenshot({path:'artifacts/proposal-rendered-review.png',fullPage:true});
     await expect(page.getByRole('button',{name:'승인하고 잠금'})).toBeDisabled(); await page.getByLabel('이 내용이 공개 가능한지 검토하고 명시적으로 허용합니다.').check(); await page.getByRole('button',{name:'승인하고 잠금'}).click(); await expect(page.getByText('검토할 제안이 없습니다',{exact:true})).toBeVisible();
     await expect(display.locator('.broadcast h2')).toHaveText('외부 시스템이 제안한 활동');
     await expect(display.locator('.broadcast-recap')).toContainText('외부 시스템이 방송 맥락을 제안했습니다.');

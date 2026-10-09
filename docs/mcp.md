@@ -51,7 +51,7 @@ Suggested client instruction:
 
 > Suggest concise, factual wording that helps a viewer understand the current activity and its context. Use `set_now` for the current activity, `update_session.fields.recap` for accumulated context, `upsert_event` for a reported decision/result and `set_pin` for a viewer notice. Read granted fields and context first. Submit a proposal for operator review. Preserve uncertainty, provenance and stable event IDs. Do not execute tasks or infer completion without evidence.
 
-`sourceRefs` contain only opaque evidence IDs. Public provenance is a declaration, not a publication permission. Unknown/restricted sources can be proposed but require the operator's explicit disclosure approval. In the **Proposals** page the operator compares current and suggested values, reviews stale content and approves or rejects. Approval locks affected fields. Normal publication then updates the anonymous OBS pages; hold and hidden modes continue to apply.
+`sourceRefs` contain only opaque evidence IDs. Public provenance is a declaration, not a publication permission. Unknown/restricted sources can be proposed but require the operator's explicit disclosure approval. In the **Proposals** page the operator compares current and suggested values and can open a rendered before/after preview for all three presets, reviews stale content and approves or rejects. Approval locks affected fields. Normal publication then updates the anonymous OBS pages; hold and hidden modes continue to apply.
 
 ## Recovery
 

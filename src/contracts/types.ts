@@ -25,4 +25,5 @@ export type PublicSnapshot = { screenId: string; preset: Preset; publicRevision:
 export type Output = { screenId: string; preset: Preset; snapshot: PublicSnapshot };
 export type Receipt = { ok: true; requestId: string; outcome: 'applied' | 'proposed' | 'no_change'; sessionId: string; appliedRevision: number; publication: 'published' | 'held' | 'hidden' | 'not_applicable'; changedPaths: string[]; warnings: string[]; proposalId?: string };
 export type Proposal = { id: string; revision: number; status: 'pending' | 'approved' | 'rejected'; actorId: string; createdAt: string; reviewedAt: string | null; change: ChangeSet };
+export type ProposalPreview = { proposalId: string; proposalRevision: number; sessionRevision: number; baseRevision: number; stale: boolean; publication: Receipt['publication']; changedPaths: string[]; before: PublicSnapshot; after: PublicSnapshot };
 export type Audit = { id: number; sessionId: string | null; actorId: string; reason: string; receivedAt: string; requestId: string | null; revision: number | null; publication: string; changedPaths: string[]; before: Session | null; after: Session | null; undoneAt?: string | null };

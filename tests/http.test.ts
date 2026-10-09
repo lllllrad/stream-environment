@@ -101,3 +101,17 @@ test('HTTP: producer token bucket rejects requests above burst quota without cha
     assert.equal(rejected.status,429);assert.equal(rejected.body.error.code,'RATE_LIMITED');assert.equal(x.engine.session(x.session.id).revision,x.session.revision);
   } finally {await x.close();}
 });
+test('HTTP: rendered proposal preview is operator-only, read-only and absent from anonymous display streams', async () => {
+  const x = await setupHttp();
+  try {
+    const request = change(x.session, [now('PRIVATE_PREVIEW_TEXT')], { intent: 'propose', provenance: { disclosure: 'unknown', observedAt: new Date().toISOString(), sourceRefs: [], reason: 'PRIVATE_REASON' } });
+    const receipt = (await x.call(`/api/v1/sessions/${x.session.id}/changes`, request, x.publisher.token)).body;
+    const path = `/api/v1/admin/proposals/${receipt.proposalId}/preview?screenId=main-full`;
+    assert.equal((await x.call(path, undefined, '')).status, 401); assert.equal((await x.call(path, undefined, x.publisher.token)).status, 403);
+    const before = x.engine.session(x.session.id), preview = await x.call(path);
+    assert.equal(preview.status, 200); assert.equal(preview.body.after.content.now.title, 'PRIVATE_PREVIEW_TEXT');
+    assert.deepEqual(x.engine.session(x.session.id), before);
+    assert.ok(!JSON.stringify((await x.call('/api/v1/display/main-full/snapshot', undefined, '')).body).includes('PRIVATE_'));
+    assert.equal((await x.call(path.replace('main-full','missing'))).status, 404);
+  } finally { await x.close(); }
+});

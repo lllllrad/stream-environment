@@ -148,6 +148,8 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         }
         if (post && path === '/api/v1/admin/locks') { const b = await body(req); fields(b, ['sessionId','path','locked','expectedRevision','reason']); return send(res, engine.locks(b)); }
         if (get && path === '/api/v1/admin/proposals') return send(res, { items: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending') });
+        const proposalPreview = path.match(/^\/api\/v1\/admin\/proposals\/([A-Za-z0-9_-]+)\/preview$/);
+        if (get && proposalPreview) return send(res, engine.proposalPreview(proposalPreview[1], url.searchParams.get('screenId') ?? 'main-full'));
         const proposal = path.match(/^\/api\/v1\/admin\/proposals\/([A-Za-z0-9_-]+)\/decision$/);
         if (post && proposal) { const b = await body(req); fields(b, ['decision','expectedProposalRevision','expectedRevision','acknowledgeStale','allowDisclosure']); return send(res, engine.decision(proposal[1], b)); }
         if (get && path === '/api/v1/admin/preview') return send(res, engine.preview(url.searchParams.get('screenId') ?? 'main-side'));

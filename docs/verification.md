@@ -16,7 +16,7 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | --- | --- |
 | Dependency installation and locked build | Passed; exact dependency versions recorded in pnpm-lock.yaml |
 | TypeScript | Passed, `pnpm typecheck` / equivalent direct TypeScript invocation |
-| Domain, contract, HTTP, lease, backup and MCP tests | 34 tests passed |
+| Domain, contract, HTTP, lease, backup and MCP tests | 36 tests passed |
 | Browser workflows and visual regression | 39 tests passed; six interaction/accessibility cases (including external MCP review) and 33 screenshot comparisons |
 | Source-resolution screenshots | Three presets × ten fixtures: empty, minimal, normal, maximum, maximum work, crowded medium lengths, no optional widgets, tentative event, reported work failure, hidden |
 | 720p visual composition | Three scaled preset screenshots captured and inspected in a browser, separately from OBS |
@@ -79,3 +79,7 @@ Creation and updates accept 120 title / 300 goal Unicode code points and reject 
 Five MCP tests launch the actual stdio adapter through the official SDK client and an isolated HTTP server. They cover capability/schema discovery, scope-filtered context, multi-field content validation and proposals, explicit approval/public projection, receipt replay, publishing grants, locks, revisions, field scopes, mismatched intents, revocation, rejected operator credentials, absent sessions and transport failure. The adapter preserves HTTP errors and does not retry or alter intent/revision.
 
 The browser suite submits actual activity/recap/notice wording through MCP, verifies it is absent from anonymous output before review, approves it through the operator UI with explicit disclosure acknowledgment, and observes those three content types over the public display stream. Setup and examples are English and contain placeholders only. No real external account/host was configured.
+
+## Rendered proposal preview follow-up
+
+Domain and HTTP tests verify all preset projections, stale re-evaluation, unknown/restricted disclosure preservation, no storage/publication side effects, hidden output isolation and operator-only access. The MCP browser workflow opens before/after previews for full, side and lower presets, confirms the suggested wording remains absent from the public output, and then explicitly approves it. A private review screenshot is generated at `artifacts/proposal-rendered-review.png`.

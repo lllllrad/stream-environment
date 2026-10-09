@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { Store } from '../server/store.ts';
 import { ensure } from '../contracts/errors.ts';
 import { canonical, hash, LIMITS, OPERATIONS, parseChange, pathAllowed, pathsFor, text, tokenHash, validPath } from '../contracts/validation.ts';
-import type { Actor, Audit, ChangeSet, Control, Operation, Output, Proposal, PublicSnapshot, Receipt, Session } from '../contracts/types.ts';
+import type { Actor, Audit, ChangeSet, Control, Operation, Output, Proposal, ProposalPreview, PublicSnapshot, Receipt, Session } from '../contracts/types.ts';
 import { filterHeld, project, samePublic } from './projection.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
@@ -258,6 +258,15 @@ export class Engine {
   }
   selectWork(id: string, input: { workItemId: string | null; expectedRevision: number }): Session {
     return this.commit(() => { const s = this.session(id), before = structuredClone(s); this.checkRevision(s, input.expectedRevision); ensure(input.workItemId === null || s.workItems.some(w => w.id === input.workItemId && !w.retractedAt), 'NOT_FOUND', 'Visible work item not found.', 404); if (s.selectedWorkId !== input.workItemId) { s.selectedWorkId = input.workItemId; s.revision++; this.store.put(`session:${id}`, s); this.log(operator, before, s, 'Displayed work selection changed', ['/selectedWorkId'], null); } return s; });
+  }
+  proposalPreview(id: string, screenId = 'main-full'): ProposalPreview {
+    const p = this.store.get<Proposal>(`proposal:${id}`); ensure(p, 'NOT_FOUND', 'Proposal not found.', 404);
+    ensure(p.status === 'pending', 'PROPOSAL_CONFLICT', 'Proposal is no longer pending.', 409);
+    const s = this.session(p.change.sessionId), output = this.output(screenId), control = this.control();
+    // Simulate the same operator candidate as approval, without receipts, writes or disclosure promotion.
+    const candidate = this.candidate(operator, { ...p.change, intent: 'apply', baseRevision: s.revision });
+    const now = stamp(), hypothetical = { ...control, mode: 'auto' as const };
+    return { proposalId: p.id, proposalRevision: p.revision, sessionRevision: s.revision, baseRevision: p.change.baseRevision, stale: p.change.baseRevision !== s.revision, publication: control.activeSessionId === s.id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, before: project(candidate.before, output, hypothetical, this.leaseMs, now), after: project(candidate.after, output, hypothetical, this.leaseMs, now) };
   }
   decision(id: string, input: { decision: string; expectedProposalRevision: number; expectedRevision: number; acknowledgeStale?: boolean; allowDisclosure?: boolean }): Proposal {
     return this.commit(() => {
