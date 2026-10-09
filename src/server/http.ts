@@ -7,8 +7,8 @@ import { LIMITS, OPERATIONS, pathAllowed, tokenHash } from '../contracts/validat
 import type { Actor, Control, Output, Proposal, Session } from '../contracts/types.ts';
 import { Engine, operator } from '../domain/engine.ts';
 
-type Credential = { role: 'operator' | 'display'; tokenHash: string; csrf?: string; screenId?: string; generation?: number; expiresAt: number };
-type Client = { response: ServerResponse; screenId: string; credentialHash: string; generation: number };
+type Credential = { role: 'operator'; tokenHash: string; csrf?: string; expiresAt: number };
+type Client = { response: ServerResponse; screenId: string };
 export type HttpOptions = { adminToken: string; heartbeatMs?: number; producerRate?: number; producerBurst?: number; webDir?: string; port?: number };
 const key = () => randomBytes(32).toString('base64url');
 function equal(a: string, b: string): boolean { return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b)); }
@@ -51,11 +51,6 @@ export function createHttp(engine: Engine, options: HttpOptions) {
     if (req.method !== 'GET') ensure(req.headers['x-csrf-token'] === c.csrf, 'CSRF_REJECTED', 'CSRF token is missing or invalid.', 403);
     return { actor: operator, credential: c };
   }
-  function displayCredential(req: IncomingMessage, screenId: string): Credential {
-    const c = credential(cookie(req, 'display_session'), 'display'), output = engine.output(screenId);
-    ensure(c && c.screenId === screenId && c.generation === output.generation, 'UNAUTHORIZED', 'Output credential is invalid, expired, or belongs to another screen.', 401);
-    return c;
-  }
   function streamSnapshot(client: Client): void {
     if (client.response.writableLength > 262144) { client.response.end(); return; }
     const snapshot = engine.output(client.screenId).snapshot;
@@ -66,8 +61,8 @@ export function createHttp(engine: Engine, options: HttpOptions) {
     try {
     engine.tick();
     for (const c of clients) {
-      const auth = engine.store.get<Credential>(`auth:${c.credentialHash}`), output = engine.output(c.screenId);
-      if (!auth || auth.expiresAt <= Date.now() || output.generation !== c.generation || c.response.writableLength > 262144) { c.response.write('event: revoked\ndata: {}\n\n'); c.response.end(); clients.delete(c); continue; }
+      const output = engine.output(c.screenId);
+      if (c.response.writableLength > 262144) { c.response.end(); clients.delete(c); continue; }
       c.response.write(`event: heartbeat\ndata: ${JSON.stringify({ publicRevision: output.snapshot.publicRevision, leaseMs: engine.leaseMs })}\n\n`);
     }
     for (const c of engine.store.list<Credential>('auth:')) if (c.expiresAt <= Date.now()) engine.store.delete(`auth:${c.tokenHash}`);
@@ -94,28 +89,21 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         res.setHeader('Set-Cookie', `operator_session=${raw}; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=43200`);
         return send(res, { ok: true, csrfToken: csrf });
       }
-      const display = path.match(/^\/api\/v1\/display\/([A-Za-z0-9_-]+)\/(authorize|snapshot|events)$/);
+      const display = path.match(/^\/api\/v1\/display\/([A-Za-z0-9_-]+)\/(snapshot|events)$/);
       if (display) {
-        const [, id, action] = display, output = engine.output(id);
-        if (post && action === 'authorize') {
-          const b = await body(req); fields(b, ['key']); ensure(typeof b.key === 'string' && equal(tokenHash(b.key), output.keyHash), 'UNAUTHORIZED', 'Invalid output key.', 401);
-          const raw = key(), digest = tokenHash(raw);
-          engine.store.put(`auth:${digest}`, { role: 'display', tokenHash: digest, screenId: id, generation: output.generation, expiresAt: Date.now() + 14 * 86400000 });
-          res.setHeader('Set-Cookie', `display_session=${raw}; HttpOnly; SameSite=Strict; Path=/api/v1/display/${id}; Max-Age=1209600`);
-          return send(res, { ok: true });
-        }
-        const c = displayCredential(req, id);
+        const [, id, action] = display; engine.output(id);
         if (get && action === 'snapshot') { engine.tick(); return send(res, engine.output(id).snapshot); }
         if (get && action === 'events') {
           res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
           res.flushHeaders();
           // Registration and initial read are synchronous, with no intervening await.
-          const client: Client = { response: res, screenId: id, credentialHash: c.tokenHash, generation: output.generation };
+          const client: Client = { response: res, screenId: id };
           clients.add(client); streamSnapshot(client);
           res.on('close', () => clients.delete(client)); return;
         }
         throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);
       }
+      if (path.startsWith('/api/v1/display/')) throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);
       if (path.startsWith('/api/v1/')) {
         const auth = actor(req); authenticated = auth.actor;
         const isAdmin = path.startsWith('/api/v1/admin/');
@@ -146,7 +134,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/logout') { const raw = cookie(req, 'operator_session'); if (raw) engine.store.delete(`auth:${tokenHash(raw)}`); res.setHeader('Set-Cookie', 'operator_session=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0'); return send(res, { ok: true }); }
         if (get && path === '/api/v1/admin/state') {
           const control = engine.control();
-          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').map(o => ({ screenId: o.screenId, preset: o.preset, generation: o.generation, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
+          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
         }
         if (get && path === '/api/v1/admin/control') return send(res, engine.control());
         if (post && path === '/api/v1/admin/control') { const b = await body(req); fields(b, ['expectedControlRevision','mode','activeSessionId','aiWritesEnabled','confirmRestore']); return send(res, engine.setControl(b)); }
@@ -169,13 +157,6 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/producers') { const b = await body(req); fields(b, ['name','expectedControlRevision','canAutoPublish','allowedSessions','allowedOperations','allowedPaths','canEditOthers']); return send(res, engine.producer(b), 201); }
         const revoke = path.match(/^\/api\/v1\/admin\/producers\/([A-Za-z0-9_-]+)\/revoke$/);
         if (post && revoke) { const b = await body(req); fields(b, ['expectedControlRevision']); engine.revoke(revoke[1], b.expectedControlRevision); return send(res, { ok: true }); }
-        const rotate = path.match(/^\/api\/v1\/admin\/outputs\/([A-Za-z0-9_-]+)\/rotate-key$/);
-        if (post && rotate) {
-          const b = await body(req); fields(b, ['expectedControlRevision']); const result = engine.rotateOutput(rotate[1], b.expectedControlRevision);
-          for (const c of clients) if (c.screenId === rotate[1]) { c.response.write('event: revoked\ndata: {}\n\n'); c.response.end(); clients.delete(c); }
-          for (const c of engine.store.list<Credential>('auth:')) if (c.role === 'display' && c.screenId === rotate[1]) engine.store.delete(`auth:${c.tokenHash}`);
-          return send(res, result);
-        }
         throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);
       }
       if (get && options.webDir) {

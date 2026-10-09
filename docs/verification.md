@@ -16,7 +16,7 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | --- | --- |
 | Dependency installation and locked build | Passed; exact dependency versions recorded in pnpm-lock.yaml |
 | TypeScript | Passed, `pnpm typecheck` / equivalent direct TypeScript invocation |
-| Domain, contract, HTTP, lease and backup tests | 27 tests passed |
+| Domain, contract, HTTP, lease and backup tests | 29 tests passed |
 | Browser workflows and visual regression | 39 tests passed; six interaction/accessibility cases and 33 screenshot comparisons |
 | Source-resolution screenshots | Three presets × ten fixtures: empty, minimal, normal, maximum, maximum work, crowded medium lengths, no optional widgets, tentative event, reported work failure, hidden |
 | 720p visual composition | Three scaled preset screenshots captured and inspected in a browser, separately from OBS |
@@ -39,7 +39,7 @@ Native preset screenshots are committed in `tests/e2e/dashboard.spec.ts-snapshot
 | AC-07–08 | Session-switch isolation, monotonic output versions, observation ordering and future-clock checks |
 | AC-09–11 | Private proposal/validation isolation, public response schema restrictions, stale/disclosure review checks |
 | AC-12–14 | Hold versus next preview, urgent event/work withdrawal and notice expiry/clearing, persisted hidden/restart state |
-| AC-15–17 | Latest-state SSE, offline lease and recovery, screen key revocation, neutral failures, output-cookie role/screen isolation |
+| AC-15–17 | Latest-state SSE, offline lease and recovery, anonymous public snapshots/SSE, hidden reload, protected operator/producer APIs (output authentication superseded by the user request) |
 | AC-18–20 | Unicode code-point/NFC/control tests, maximum mixed text fixtures, plain-text code-like input, producer ownership and field grants |
 | AC-21–22 | Injected DB rollback, restart/backup recovery, exact-content no-change behavior |
 | AC-23–24 | Public-only failure widget, scoped DTOs, explicit held/proposed outcomes in demo/client examples |
@@ -69,3 +69,7 @@ Measurements include loopback request handling, browser delivery and DOM observa
 - Remote/cloud client integration. The local build intentionally does not expose a remote endpoint; an HTTPS/host/origin/access configuration must be implemented and tested before that deployment.
 
 These pending checks do not affect the executed automated results; they prevent labeling the system OBS-certified, remotely deployed, or eight-hour validated.
+
+## Public-output and text-limit follow-up
+
+Creation and updates accept 120 title / 300 goal Unicode code points and reject overflows atomically. Migration preserves published snapshots, controls and operator credentials while removing obsolete output secrets. Anonymous output reads cannot access proposals, context or admin APIs. All 39 browser cases passed across the full regression run plus the corrected legacy-fragment case; the maximum full/full-work screenshots were regenerated and visually inspected.

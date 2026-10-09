@@ -18,14 +18,14 @@ function Display() {
     const refresh = async () => {
       if (refreshing || stopped) return;
       refreshing = true;
-      try { const response = await fetch(`/api/v1/display/${screenId}/snapshot`); if (response.status === 401) { hide(); source?.close(); } else if (response.ok) accept(await response.json()); }
+      try { const response = await fetch(`/api/v1/display/${screenId}/snapshot`, { credentials: 'omit' }); if (response.ok) accept(await response.json()); }
       catch { /* Keep the last snapshot only within its lease. */ }
       finally { refreshing = false; }
     };
+    // Previously issued fragment URLs remain usable; no credential is exchanged.
+    const clearFragment = () => { if (location.hash) history.replaceState(null, '', location.pathname); };
     const start = async () => {
-      const fragment = new URLSearchParams(location.hash.slice(1)); const key = fragment.get('key');
-      if (location.hash) history.replaceState(null, '', location.pathname);
-      if (key) { try { const r = await fetch(`/api/v1/display/${screenId}/authorize`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }) }); if (!r.ok || stopped) { hide(); return; } } catch { hide(); return; } }
+      clearFragment();
       await refresh(); if (stopped || !navigator.onLine) return;
       source?.close();
       source = new EventSource(`/api/v1/display/${screenId}/events`);
@@ -33,7 +33,6 @@ function Display() {
       source.addEventListener('heartbeat', e => {
         try { const data = JSON.parse((e as MessageEvent).data); if (lease.heartbeat(data.publicRevision, data.leaseMs) === 'refresh') void refresh(); else if (current && !lease.expired()) setSnapshot(current); } catch { hide(); }
       });
-      source.addEventListener('revoked', () => { hide(); current = null; source?.close(); });
     };
     void start();
     const check = () => { if (lease.expired()) setSnapshot(null); };
@@ -41,8 +40,8 @@ function Display() {
     const offline = () => { source?.close(); source = null; };
     const online = () => { if (!source) void start(); };
     const interval = setInterval(check, 250);
-    document.addEventListener('visibilitychange', visibility); window.addEventListener('pageshow', visibility); window.addEventListener('offline', offline); window.addEventListener('online', online);
-    return () => { stopped = true; source?.close(); clearInterval(interval); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pageshow', visibility); window.removeEventListener('offline', offline); window.removeEventListener('online', online); };
+    document.addEventListener('visibilitychange', visibility); window.addEventListener('pageshow', visibility); window.addEventListener('offline', offline); window.addEventListener('online', online); window.addEventListener('hashchange', clearFragment);
+    return () => { stopped = true; source?.close(); clearInterval(interval); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('pageshow', visibility); window.removeEventListener('offline', offline); window.removeEventListener('online', online); window.removeEventListener('hashchange', clearFragment); };
   }, []);
   return <Broadcast snapshot={snapshot} />;
 }

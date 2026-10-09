@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Store } from '../server/store.ts';
 import { ensure } from '../contracts/errors.ts';
-import { canonical, hash, OPERATIONS, parseChange, pathAllowed, pathsFor, text, tokenHash, validPath } from '../contracts/validation.ts';
+import { canonical, hash, LIMITS, OPERATIONS, parseChange, pathAllowed, pathsFor, text, tokenHash, validPath } from '../contracts/validation.ts';
 import type { Actor, Audit, ChangeSet, Control, Operation, Output, Proposal, PublicSnapshot, Receipt, Session } from '../contracts/types.ts';
 import { filterHeld, project, samePublic } from './projection.ts';
 
@@ -16,8 +16,11 @@ export class Engine {
       if (!this.store.get('control')) this.store.put('control', { activeSessionId: null, controlRevision: 0, mode: 'auto', aiWritesEnabled: true, timezone: 'Asia/Seoul' });
       for (const preset of ['full', 'side', 'lower'] as const) {
         const id = `main-${preset}`;
-        if (!this.store.get(`output:${id}`)) this.store.put(`output:${id}`, { screenId: id, preset, keyHash: tokenHash(secret()), generation: 0, snapshot: { screenId: id, preset, publicRevision: 0, sessionId: null, mode: 'auto', leaseMs, publishedAt: stamp(), content: null } });
+        const existing = this.store.get<Output>(`output:${id}`);
+        // Drop obsolete output credentials while preserving every published snapshot.
+        this.store.put(`output:${id}`, { screenId: id, preset, snapshot: existing?.snapshot ?? { screenId: id, preset, publicRevision: 0, sessionId: null, mode: 'auto', leaseMs, publishedAt: stamp(), content: null } });
       }
+      for (const auth of this.store.list<{ role: string; tokenHash: string }>('auth:')) if (auth.role === 'display') this.store.delete(`auth:${auth.tokenHash}`);
     });
   }
   control(): Control { return this.store.get<Control>('control')!; }
@@ -58,7 +61,7 @@ export class Engine {
   createSession(input: { title: unknown; goal: unknown; expectedControlRevision: number }): Session {
     return this.commit(() => {
       const c = this.control(); this.checkControl(c, input.expectedControlRevision);
-      const s: Session = { id: `session_${randomUUID()}`, title: text(input.title, 60), goal: text(input.goal, 100), recap: [], status: 'prepared', revision: 0, createdAt: stamp(), startedAt: null, endedAt: null, now: null, nowObservedAt: null, pin: null, events: [], workItems: [], locks: [], selectedWorkId: null };
+      const s: Session = { id: `session_${randomUUID()}`, title: text(input.title, LIMITS.sessionTitle), goal: text(input.goal, LIMITS.goal), recap: [], status: 'prepared', revision: 0, createdAt: stamp(), startedAt: null, endedAt: null, now: null, nowObservedAt: null, pin: null, events: [], workItems: [], locks: [], selectedWorkId: null };
       this.store.put(`session:${s.id}`, s); this.log(operator, null, s, 'Session created', [], null);
       return s;
     });
@@ -252,9 +255,6 @@ export class Engine {
   }
   revoke(id: string, expected: number): void {
     this.commit(() => { const c = this.control(); this.checkControl(c, expected); const a = this.actor(id); a.revoked = true; this.store.put(`producer:${id}`, a); c.controlRevision++; this.store.put('control', c); this.log(operator, null, null, 'Producer revoked', ['/producers'], null); });
-  }
-  rotateOutput(id: string, expected: number): { key: string; generation: number } {
-    return this.commit(() => { const c = this.control(); this.checkControl(c, expected); const o = this.output(id), key = secret(); o.keyHash = tokenHash(key); o.generation++; this.store.put(`output:${id}`, o); c.controlRevision++; this.store.put('control', c); this.log(operator, null, null, 'Output key rotated', ['/outputs'], null); return { key, generation: o.generation }; });
   }
   selectWork(id: string, input: { workItemId: string | null; expectedRevision: number }): Session {
     return this.commit(() => { const s = this.session(id), before = structuredClone(s); this.checkRevision(s, input.expectedRevision); ensure(input.workItemId === null || s.workItems.some(w => w.id === input.workItemId && !w.retractedAt), 'NOT_FOUND', 'Visible work item not found.', 404); if (s.selectedWorkId !== input.workItemId) { s.selectedWorkId = input.workItemId; s.revision++; this.store.put(`session:${id}`, s); this.log(operator, before, s, 'Displayed work selection changed', ['/selectedWorkId'], null); } return s; });

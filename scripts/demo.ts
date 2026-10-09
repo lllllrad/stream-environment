@@ -58,7 +58,7 @@ if (args.includes('--exercise') || args.includes('--end')) {
   if (fixture.operations.length) { const receipt = await call(`/sessions/${session.id}/changes`, draft(current, fixture.operations), producer.token); console.log(`Demo state stored: ${receipt.outcome}; publication: ${receipt.publication}.`); }
   if (fixture.hidden) { control = await call('/admin/control'); await call('/admin/control', { expectedControlRevision: control.controlRevision, mode: 'hidden' }); }
   const urls: Record<string,string> = {};
-  for (const preset of ['full','side','lower']) { control = await call('/admin/control'); const credential = await call(`/admin/outputs/main-${preset}/rotate-key`, { expectedControlRevision: control.controlRevision }); urls[preset] = `${base}/display/main-${preset}#key=${credential.key}`; }
+  for (const preset of ['full','side','lower']) urls[preset] = `${base}/display/main-${preset}`;
   writeFileSync(resolve(dataDir,'demo-outputs.json'), JSON.stringify(urls,null,2), { mode: 0o600 });
   console.log(`Synthetic scenario: ${name}. Output URLs saved privately to ${resolve(dataDir,'demo-outputs.json')}.\nNo AI account is required. Use --exercise for conflict/hold/hidden demonstrations, or --end to finish.`);
 }

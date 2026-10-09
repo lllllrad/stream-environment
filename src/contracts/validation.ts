@@ -9,7 +9,7 @@ const ajv = new Ajv({ allErrors: true, strict: true });
 (addFormats as unknown as (a: Ajv) => void)(ajv);
 const schema = JSON.parse(readFileSync(new URL('../../contracts/change-set.schema.json', import.meta.url), 'utf8'));
 const validate = ajv.compile(schema);
-export const LIMITS = { sessionTitle: 60, goal: 100, nowTitle: 48, nowDetail: 120, next: 60, recap: 100, event: 100, pin: 100, workTitle: 60, publicResult: 160, maxOperations: 20, maxBytes: 65536 };
+export const LIMITS = { sessionTitle: 120, goal: 300, nowTitle: 48, nowDetail: 120, next: 60, recap: 100, event: 100, pin: 100, workTitle: 60, publicResult: 160, maxOperations: 20, maxBytes: 65536 };
 export const OPERATIONS = ['update_session', 'set_now', 'set_pin', 'upsert_event', 'retract_event', 'upsert_work_item', 'retract_work_item'];
 export function normalize(value: unknown): any {
   if (typeof value === 'string') return value.normalize('NFC');

@@ -227,7 +227,7 @@
       "properties": {
         "title": {
           "type": "string",
-          "maxLength": 60
+          "maxLength": 120
         },
         "status": {
           "enum": [
@@ -239,7 +239,7 @@
         },
         "goal": {
           "type": "string",
-          "maxLength": 100
+          "maxLength": 300
         },
         "now": {
           "anyOf": [
@@ -316,7 +316,7 @@
                 "properties": {
                   "title": {
                     "type": "string",
-                    "maxLength": 60
+                    "maxLength": 120
                   },
                   "status": {
                     "enum": [

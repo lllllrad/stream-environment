@@ -177,3 +177,34 @@ test('sensitive session purge removes proposals, receipts, cached snapshots and 
   assert.equal(store.get(`session:${s.id}`), undefined); assert.equal(store.list<Proposal>('proposal:').length, 0);
   assert.ok(!JSON.stringify(store.audits()).includes(secret)); assert.ok(!JSON.stringify(store.list('output:')).includes(secret)); store.close();
 });
+test('session limits accept 120/300 Unicode code points for creation and updates, reject overflow atomically', () => {
+  const x = setup();
+  try {
+    const title = '😀'.repeat(120), goal = '가'.repeat(300);
+    const created = x.engine.createSession({ title, goal, expectedControlRevision: x.engine.control().controlRevision });
+    assert.equal(created.title, title); assert.equal(created.goal, goal);
+    assert.throws(() => x.engine.createSession({ title: title + '가', goal, expectedControlRevision: x.engine.control().controlRevision }));
+    assert.throws(() => x.engine.createSession({ title, goal: goal + '가', expectedControlRevision: x.engine.control().controlRevision }));
+    apply(x.engine, x.producer, x.session.id, [{ op: 'update_session', fields: { title, goal } }]);
+    const before = x.engine.session(x.session.id), output = x.engine.output('main-full');
+    for (const fields of [{ title: title + '😀' }, { goal: goal + '가' }]) {
+      assert.throws(() => apply(x.engine, x.producer, x.session.id, [{ op: 'update_session', fields }]));
+      assert.deepEqual(x.engine.session(x.session.id), before); assert.deepEqual(x.engine.output('main-full'), output);
+    }
+  } finally { x.store.close(); }
+});
+
+test('public-output migration preserves snapshots, controls and operator credentials, removing old output secrets', () => {
+  const x = setup();
+  try {
+    apply(x.engine, x.producer, x.session.id, [now()]);
+    x.engine.setControl({ mode: 'hold', expectedControlRevision: x.engine.control().controlRevision });
+    const output = x.engine.output('main-side'), control = x.engine.control();
+    x.store.put('output:main-side', { ...output, keyHash: 'obsolete', generation: 4 });
+    x.store.put('auth:display', { role: 'display', tokenHash: 'display', expiresAt: Date.now() + 1000 });
+    x.store.put('auth:operator', { role: 'operator', tokenHash: 'operator', expiresAt: Date.now() + 1000 });
+    const reopened = new Engine(x.store);
+    assert.deepEqual(reopened.output('main-side'), output); assert.deepEqual(reopened.control(), control);
+    assert.equal(x.store.get('auth:display'), undefined); assert.ok(x.store.get('auth:operator'));
+  } finally { x.store.close(); }
+});

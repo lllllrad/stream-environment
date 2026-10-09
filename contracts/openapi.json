@@ -1593,11 +1593,11 @@
                 "properties": {
                   "title": {
                     "type": "string",
-                    "maxLength": 60
+                    "maxLength": 120
                   },
                   "goal": {
                     "type": "string",
-                    "maxLength": 100
+                    "maxLength": 300
                   },
                   "expectedControlRevision": {
                     "type": "integer",
@@ -3339,286 +3339,11 @@
         }
       }
     },
-    "/api/v1/admin/outputs/{screenId}/rotate-key": {
-      "post": {
-        "summary": "Issue output key and invalidate all old cookies/streams",
-        "description": "",
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "operatorCookie": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "key": {
-                      "type": "string",
-                      "maxLength": 100
-                    },
-                    "generation": {
-                      "type": "integer",
-                      "minimum": 0
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "generation"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credential",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission, CSRF, Origin or Host rejected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource missing",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, lock, ownership or idempotency conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Schema, text or disclosure invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Storage/service unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "screenId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "expectedControlRevision": {
-                    "type": "integer",
-                    "minimum": 0
-                  }
-                },
-                "required": [
-                  "expectedControlRevision"
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/display/{screenId}/authorize": {
-      "post": {
-        "summary": "Exchange output fragment key for screen-scoped cookie",
-        "description": "The browser clears the URL fragment immediately. HttpOnly, SameSite=Strict cookie path is scoped to this screen, expires after 14 days, and is invalidated by key rotation.",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [
-                    "ok"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credential",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Permission, CSRF, Origin or Host rejected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Resource missing",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Revision, lock, ownership or idempotency conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Schema, text or disclosure invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Storage/service unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "screenId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 100
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "key": {
-                    "type": "string",
-                    "maxLength": 100
-                  }
-                },
-                "required": [
-                  "key"
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/display/{screenId}/snapshot": {
       "get": {
         "summary": "Read a complete public snapshot",
         "description": "",
-        "security": [
-          {
-            "displayCookie": []
-          }
-        ],
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",
@@ -3716,13 +3441,9 @@
     },
     "/api/v1/display/{screenId}/events": {
       "get": {
-        "summary": "Subscribe to latest snapshots, heartbeats and revocation",
-        "description": "SSE: snapshot events have monotonic publicRevision IDs; heartbeat has no event ID and only publicRevision/leaseMs; revoked clears the screen. New/reconnected subscribers receive latest full snapshot, not historic replay. Last-Event-ID is accepted but not replayed.",
-        "security": [
-          {
-            "displayCookie": []
-          }
-        ],
+        "summary": "Subscribe to latest snapshots and heartbeats",
+        "description": "SSE: snapshot events have monotonic publicRevision IDs; heartbeat has no event ID and only publicRevision/leaseMs; New/reconnected subscribers receive latest full snapshot, not historic replay. Last-Event-ID is accepted but not replayed.",
+        "security": [],
         "responses": {
           "200": {
             "description": "SSE stream",
@@ -3829,11 +3550,6 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "operator_session"
-      },
-      "displayCookie": {
-        "type": "apiKey",
-        "in": "cookie",
-        "name": "display_session"
       }
     },
     "schemas": {
@@ -3908,11 +3624,11 @@
           },
           "title": {
             "type": "string",
-            "maxLength": 60
+            "maxLength": 120
           },
           "goal": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 300
           },
           "recap": {
             "type": "array",
@@ -4584,11 +4300,11 @@
           },
           "title": {
             "type": "string",
-            "maxLength": 60
+            "maxLength": 120
           },
           "goal": {
             "type": "string",
-            "maxLength": 100
+            "maxLength": 300
           },
           "recap": {
             "type": "array",
@@ -4892,7 +4608,7 @@
                 },
                 "title": {
                   "type": "string",
-                  "maxLength": 60
+                  "maxLength": 120
                 },
                 "status": {
                   "enum": [
@@ -4953,10 +4669,6 @@
                     "lower"
                   ]
                 },
-                "generation": {
-                  "type": "integer",
-                  "minimum": 0
-                },
                 "publicRevision": {
                   "type": "integer",
                   "minimum": 0
@@ -4965,7 +4677,6 @@
               "required": [
                 "screenId",
                 "preset",
-                "generation",
                 "publicRevision"
               ]
             }

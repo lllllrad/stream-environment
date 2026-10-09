@@ -14,7 +14,7 @@ pnpm start
 
 Open [the control room](http://127.0.0.1:4310/admin). On first start, the server creates `.data/operator.key`. Copy its contents into the operator-key field. To supply your own credential, copy `.env.example` to `.env` and set `ADMIN_TOKEN` to a random value of at least 24 characters. Credentials, SQLite files, generated reports, and local configuration are ignored by Git.
 
-The initial app has no example content. Create a session, enter its public content, and use **Output settings** to issue a read-only output URL. The operator UI and broadcast page are separate routes and bundles.
+The initial app has no example content. Create a session, enter its public content, and use **Output settings** to copy a fixed public output URL (no login or key required). The operator UI and broadcast page are separate routes and bundles.
 
 | Output | Browser-source size | Purpose |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ Interface labels and sample broadcast content are Korean; display time is Asia/S
 - Session creation, start, pause, resume, and end; six kinds of broadcast information.
 - Manual edits with persistent server-enforced field locks, explicit unlock, event/work correction and withdrawal, pinned notice expiry, and work selection.
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
-- Per-producer session/operation/field grants, proposal-only clients, review comparisons, stale/disclosure acknowledgments, credential revocation, and output-key rotation.
+- Per-producer session/operation/field grants, proposal-only clients, review comparisons, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
 - SQLite transactions for state, audit deltas, receipts, and per-output public snapshots; canonical idempotency, revision checks, observation ordering, atomic batches, and safe restart recovery.
 - Output-scoped HttpOnly cookies, latest-state SSE reconnect, bounded content leases, neutral authentication failures, plain-text rendering, request limits, and producer rate limits.
 - Field-wise undo, full-session sensitive-content scrubbing, consistent backups, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.

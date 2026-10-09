@@ -23,7 +23,7 @@ const browser = await chromium.launch({channel:'msedge',headless:true});
 try {
   const context = await browser.newContext({timezoneId:'Asia/Seoul'});
   const pages = [];
-  for (const preset of ['full','side','lower'] as const) { const p = await context.newPage(); const [width,height] = DIMENSIONS[preset]; await p.setViewportSize({width,height}); const output = engine.rotateOutput(`main-${preset}`,engine.control().controlRevision); await p.goto(`${base}/display/main-${preset}#key=${output.key}`); pages.push(p); }
+  for (const preset of ['full','side','lower'] as const) { const p = await context.newPage(); const [width,height] = DIMENSIONS[preset]; await p.setViewportSize({width,height}); await p.goto(`${base}/display/main-${preset}`); pages.push(p); }
   const admin = await context.newPage(); await admin.goto(`${base}/admin`); await admin.getByLabel('운영자 키').fill(token); await admin.getByRole('button',{name:'컨트롤 룸 열기'}).click();
   await admin.getByRole('heading',{name:'컨트롤 룸',exact:true}).waitFor();
   const metrics = await Promise.all([...pages,admin].map(async page => {const client=await context.newCDPSession(page);await client.send('Performance.enable');return client;}));

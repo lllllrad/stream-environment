@@ -15,7 +15,7 @@ export const scenarios: Record<string, Scenario> = {
   optional_none: { title: '오늘의 이야기', goal: '지금까지의 맥락을 공유합니다.', operations: [{ op: 'set_now', value: { ...activity, next: null } }, { op: 'update_session', fields: { recap: ['설정 비교를 위한 준비를 마쳤습니다.'] } }] },
   tentative: { title: '비교 결과 검토', goal: '확인되지 않은 해석은 검토 중으로 표시합니다.', operations: [{ op: 'set_now', value: { ...activity, status: 'blocked' } }, { op: 'upsert_event', event: { id: 'tentative', kind: 'result', text: '입력 길이가 차이의 원인일 수 있어 추가 확인이 필요합니다.', occurredAt: fixedTime, certainty: 'tentative' } }] },
   failed: { title: '외부 작업 상태', goal: '공개 가능한 작업 결과만 표시합니다.', operations: [{ op: 'set_now', value: { ...activity, status: 'paused' } }, { op: 'upsert_work_item', workItem: { id: 'failure', title: '비교 자료 정리', status: 'failed', publicResult: '자료 수집을 완료하지 못했습니다. 범위를 줄여 다시 확인할 예정입니다.' } }] },
-  maximum: { title: '한글과English😀'.repeat(5).slice(0, 55), goal: '공개 화면의 최대 길이에서도 활동과 맥락을 읽을 수 있도록 여러 종류의 글자를 함께 확인합니다. '.repeat(2).slice(0,100), operations: [
+  maximum: { title: Array.from('한글과English😀'.repeat(12)).slice(0, 120).join(''), goal: '공개 화면의 최대 길이에서도 활동과 맥락을 읽을 수 있도록 여러 종류의 글자를 함께 확인합니다. '.repeat(6).slice(0,300), operations: [
     { op: 'set_now', value: { title: '가나다라마바사아자차카타파하'.repeat(4).slice(0,48), detail: '한글과 English 그리고 😀 이모지를 섞어서 설명을 읽고 화면의 넘침을 확인합니다. '.repeat(3).slice(0,120), status: 'in_progress', next: '다음 활동의 최대 길이도 검토합니다. '.repeat(4).slice(0,60) } },
     { op: 'update_session', fields: { recap: [1,2,3].map(i => `${i}번째 핵심 맥락: `.padEnd(100, '가')) } },
     ...[1,2,3].map(i => ({ op: 'upsert_event' as const, event: { id: `max_${i}`, kind: 'decision' as const, text: `${i}번째 사건 EnglishLONGWORDWITHOUTSPACES`.padEnd(100,'W'), occurredAt: fixedTime, certainty: 'tentative' as const } })),

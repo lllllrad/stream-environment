@@ -85,12 +85,12 @@
                   "title": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 60
+                    "maxLength": 120
                   },
                   "goal": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 100
+                    "maxLength": 300
                   },
                   "recap": {
                     "type": "array",

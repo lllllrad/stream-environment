@@ -4,13 +4,13 @@
 
 Start the server with `pnpm start` after `pnpm build`. Authenticate at `/admin` using `ADMIN_TOKEN` or the key generated in `.data/operator.key`. The key is not printed, embedded in the web bundle, or sent in a URL. Keep the `.data` directory accessible only to the local account. On Windows, enforce protection through directory ACLs; a POSIX-style file mode alone does not establish a Windows ACL.
 
-Create a session with a short title and goal. When no activity is running, the UI creates and starts it. A session created while another is running remains prepared; end the current activity before starting it from the prepared list. Only one session can be active. Pause/resume refers to activity state, independently of the streaming platform.
+Create a session with a title of up to 120 Unicode code points and a goal of up to 300. Long stored content is capped to the available broadcast lines; use the preview to check the visible wording. When no activity is running, the UI creates and starts it. A session created while another is running remains prepared; end the current activity before starting it from the prepared list. Only one session can be active. Pause/resume refers to activity state, independently of the streaming platform.
 
 Enter the current activity, recap, and optional public items. Manual edits create locks that survive restarts and last until explicit unlock or session end. Use a field's **Locked** badge to enable automatic updates again. A producer cannot remove a lock. Ending removes the current-activity display while preserving the final recap; subsequent producer changes to that session are rejected.
 
 ## Add an OBS browser source
 
-In **Output settings**, issue a read-only URL for a preset. The key is shown once in the dialog. Copy it into a new OBS Browser Source and enter the exact viewport:
+In **Output settings**, copy the fixed public URL for a preset into a new OBS Browser Source and enter the exact viewport. No login, output key, or output cookie is required:
 
 | Preset | Width | Height | Background |
 | --- | ---: | ---: | --- |
@@ -22,9 +22,9 @@ Use a 1920 × 1080 base canvas for the initial setup. At 1280 × 720 output, sca
 
 Keep the browser-source default transparent-body CSS. Do not apply a global font-size reduction. The renderer uses fixed source dimensions; entering the wrong viewport clips content rather than providing a freeform layout. Long text uses line caps/ellipses and server-selected compact information density.
 
-Check both **Shutdown source when not visible** and **Refresh browser when scene becomes active** in your intended combination. Reload must authorize using the source URL's fragment key or an existing valid screen cookie, then fetch the latest snapshot. The page removes the fragment immediately; the key is not sent in HTTP URLs/referrers. If OBS retains the original URL, the original fragment is available on a fresh source load. A copied address from the loaded page no longer contains the key.
+Check both **Shutdown source when not visible** and **Refresh browser when scene becomes active** in your intended combination. Every reload fetches the latest public snapshot without authentication.
 
-Source URL formats are `/display/main-full#key=...`, `/display/main-side#key=...`, and `/display/main-lower#key=...`. Generate real URLs through the operator UI; screen IDs alone are not credentials.
+Use `http://127.0.0.1:4310/display/main-full`, `http://127.0.0.1:4310/display/main-side`, or `http://127.0.0.1:4310/display/main-lower` (replace the port when configured). Legacy URLs containing `#key=...` still open; the fragment is discarded without exchanging credentials. Snapshot and SSE endpoints are also public, and contain only the projected broadcast content. Operator controls, session context, producers, proposals and audit records remain authenticated.
 
 ## Publication controls
 
@@ -49,11 +49,13 @@ Tokens are displayed once; store them in the client's secret store. Revoke a tok
 
 Review compares proposed values against current values. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
 
-## Key rotation and reconnect
+## Public output and reconnect
 
-Output-key rotation invalidates the old key, all cookies for that screen, and existing SSE connections. Replace the OBS source URL with the newly issued URL and reload. Its key grants only public read access to that screen, with no operator or producer permissions. Output cookies expire after 14 days; operator cookies after 12 hours.
+Output URLs are stable and do not expire. Operator cookies expire after 12 hours. Revoking a producer token blocks that producer; hiding the output uses the separate publication controls.
 
-On a new or reconnected stream, only the latest complete safe snapshot is delivered. Public revisions are monotonic for each output across session changes. No past event stream or persisted browser-content cache is replayed. A neutral page after authentication failure is intentional; reissue/re-enter the key instead of displaying an old session.
+On a new or reconnected stream, only the latest complete public snapshot is delivered. Public revisions are monotonic for each output across session changes. No past event stream or persisted browser-content cache is replayed. Emergency hide continues to clear connected outputs and remains hidden after reload. A disconnected page clears itself after its lease expires.
+
+Upgrading removes obsolete output key hashes and display authentication records from the current SQLite documents while preserving sessions, locks, publication modes and snapshots. Operator credentials remain valid. Historic backups retain their original data until separately replaced or removed.
 
 ## Backup and restore
 
@@ -66,7 +68,7 @@ To restore:
 3. In a new private data directory, copy the chosen consistent backup as `dashboard.db`. Do not copy WAL/SHM files from a different database snapshot.
 4. Preserve the intended operator credential, or supply a new `ADMIN_TOKEN` of at least 24 characters. Set `DATA_DIR` to that directory and restart.
 5. Confirm session, locks, hold/hidden state, latest public revision, and storage readiness. Review the next snapshot before resuming publication.
-6. Rotate all output keys and revoke/reissue producer tokens whose security state may have changed since the backup. Restoring an old backup can restore older revocation/generation state.
+6. Revoke/reissue producer tokens whose security state may have changed since the backup. Restoring an old backup can restore older producer revocation state. Outputs remain public; obsolete output credentials are removed at startup.
 
 Use `/health/live` for process liveness and `/health/ready` for SQLite readiness. Storage failures reject complete commands; they do not publish partial changes. Receipt retries recover committed requests after a lost response.
 

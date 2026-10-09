@@ -20,7 +20,7 @@ async function setupHttp(options: {producerRate?:number;producerBurst?:number} =
   const publisher = engine.producer({ name: 'Publisher', canAutoPublish: true, allowedSessions: [session.id], allowedOperations: ['set_now','upsert_event'], allowedPaths: ['/now','/events/*'], expectedControlRevision: 1 });
   return { store, engine, app, base, call, token, session: engine.session(session.id), publisher, close: async () => { await app.close(); store.close(); } };
 }
-test('HTTP: operator login, CSRF, producer isolation, output-only cookies, per-screen access and Host/Origin checks', async () => {
+test('HTTP: operator login, CSRF, producer isolation, anonymous public outputs, protected private APIs and Host/Origin checks', async () => {
   const x = await setupHttp();
   try {
     const login = await x.call('/api/v1/admin/login', { token: x.token }, '');
@@ -30,38 +30,43 @@ test('HTTP: operator login, CSRF, producer isolation, output-only cookies, per-s
     assert.equal((await x.call('/api/v1/admin/control', { expectedControlRevision: 2, mode: 'hold' }, '', operatorCookie, login.body.csrfToken)).status, 200);
     assert.equal((await x.call('/api/v1/admin/state', undefined, x.publisher.token)).status, 403);
     assert.equal((await x.call('/api/v1/admin/control', { mode: 'auto', expectedControlRevision: 3 }, x.publisher.token)).status, 403);
-    const out = await x.call('/api/v1/admin/outputs/main-side/rotate-key', { expectedControlRevision: 3 });
-    const displayAuth = await x.call('/api/v1/display/main-side/authorize', { key: out.body.key }, '');
-    assert.equal(displayAuth.status, 200); assert.match(displayAuth.headers.get('set-cookie')!, /Path=\/api\/v1\/display\/main-side/);
-    const displayCookie = displayAuth.headers.get('set-cookie')!.split(';')[0];
-    assert.equal((await x.call('/api/v1/display/main-side/snapshot', undefined, '', displayCookie)).status, 200);
-    assert.equal((await x.call('/api/v1/display/main-full/snapshot', undefined, '', displayCookie)).status, 401);
-    assert.equal((await x.call('/api/v1/admin/state', undefined, '', displayCookie)).status, 401);
-    assert.equal((await x.call(`/api/v1/sessions/${x.session.id}/context`, undefined, '', displayCookie)).status, 401);
+    for (const screen of ['main-side','main-full','main-lower']) {
+      const snapshot = await x.call(`/api/v1/display/${screen}/snapshot`, undefined, '');
+      assert.equal(snapshot.status, 200); assert.equal(snapshot.headers.get('set-cookie'), null);
+      assert.equal(snapshot.body.screenId, screen);
+    }
+    assert.equal((await x.call('/api/v1/admin/state', undefined, '')).status, 401);
+    assert.equal((await x.call(`/api/v1/sessions/${x.session.id}/context`, undefined, '')).status, 401);
+    assert.equal((await x.call('/api/v1/display/main-side/snapshot', {}, '')).status, 404);
+    assert.equal((await x.call('/api/v1/display/main-side/authorize', { key: 'legacy' }, '')).status, 404);
+    assert.equal((await x.call('/api/v1/display/missing/snapshot', undefined, '')).status, 404);
     const origin = await fetch(x.base + '/health/live', { headers: { Origin: 'https://untrusted.example' } }); assert.equal(origin.status, 403);
     const hostStatus = await new Promise<number>(resolve => { const r = httpRequest(x.base + '/health/live', { headers: { Host: 'untrusted.example' } }, response => { response.resume(); resolve(response.statusCode!); }); r.end(); }); assert.equal(hostStatus, 403);
   } finally { await x.close(); }
 });
-test('HTTP: public snapshot and SSE contain no proposed content; reconnect sends latest, rotation closes the stream', async () => {
+test('HTTP: public snapshot and SSE contain no proposed content; reconnect sends latest and emergency hide clears the stream', async () => {
   const x = await setupHttp();
   try {
-    const output = x.engine.rotateOutput('main-side', x.engine.control().controlRevision);
-    const auth = await x.call('/api/v1/display/main-side/authorize', { key: output.key }, ''); const c = auth.headers.get('set-cookie')!.split(';')[0];
     const proposed = change(x.session, [now('PRIVATE_NOT_PUBLISHED')], { intent: 'propose', provenance: { disclosure: 'restricted', reason: 'PRIVATE_REASON', sourceRefs: ['private:reference'], observedAt: new Date().toISOString() } });
     assert.equal((await x.call(`/api/v1/sessions/${x.session.id}/changes`, proposed, x.publisher.token)).body.outcome, 'proposed');
     const applied = change(x.session, [now('Public activity'), event()]);
     assert.equal((await x.call(`/api/v1/sessions/${x.session.id}/changes`, applied, x.publisher.token)).body.publication, 'published');
-    const response = await fetch(x.base + '/api/v1/display/main-side/events', { headers: { Cookie: c, 'Last-Event-ID': '0' } });
+    const response = await fetch(x.base + '/api/v1/display/main-side/events', { headers: { 'Last-Event-ID': '0' } });
     const reader = response.body!.getReader(); const chunk = new TextDecoder().decode((await reader.read()).value);
     assert.match(chunk, /event: snapshot/); assert.match(chunk, /Public activity/); assert.ok(!chunk.includes('PRIVATE_')); assert.ok(!chunk.includes('sourceRefs')); assert.ok(!chunk.includes('actorId'));
     const firstRevision = x.engine.output('main-side').snapshot.publicRevision;
     x.engine.changes(x.publisher.producer, x.session.id, change(x.engine.session(x.session.id), [now('Latest activity')]));
     const next = new TextDecoder().decode((await reader.read()).value); assert.match(next, /Latest activity/); assert.ok(x.engine.output('main-side').snapshot.publicRevision > firstRevision);
-    const rotated = await x.call('/api/v1/admin/outputs/main-side/rotate-key', { expectedControlRevision: x.engine.control().controlRevision }); assert.equal(rotated.status, 200);
-    let remainder = ''; for (;;) { const part = await reader.read(); if (part.done) break; remainder += new TextDecoder().decode(part.value); }
-    assert.match(remainder, /event: revoked/);
-    assert.equal((await x.call('/api/v1/display/main-side/snapshot', undefined, '', c)).status, 401);
-    assert.equal((await x.call('/api/v1/display/main-side/authorize', { key: output.key }, '')).status, 401);
+    x.engine.setControl({ mode: 'hidden', expectedControlRevision: x.engine.control().controlRevision });
+    const hidden = new TextDecoder().decode((await reader.read()).value);
+    assert.match(hidden, /"mode":"hidden"/); assert.match(hidden, /"content":null/);
+    await reader.cancel();
+    const reconnect = await fetch(x.base + '/api/v1/display/main-side/events', { headers: { 'Last-Event-ID': '0' } });
+    const latest = reconnect.body!.getReader();
+    const initial = new TextDecoder().decode((await latest.read()).value);
+    assert.match(initial, /"mode":"hidden"/); assert.ok(!initial.includes('Public activity')); assert.ok(!initial.includes('PRIVATE_'));
+    await latest.cancel();
+    assert.equal((await x.call('/api/v1/display/main-side/snapshot', undefined, '')).body.content, null);
   } finally { await x.close(); }
 });
 test('HTTP: JSON/domain errors are structured, body limits and validate side effects are enforced', async () => {

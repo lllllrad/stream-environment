@@ -30,7 +30,7 @@ async function seed(request: APIRequestContext, name = 'normal') {
   };
   if (fixture.operations.length) await change(fixture.operations);
   if (fixture.hidden) { control = await api(request, '/admin/control'); await api(request, '/admin/control', { mode: 'hidden', expectedControlRevision: control.controlRevision }); }
-  const outputUrl = async (preset = 'side') => { control = await api(request, '/admin/control'); const r = await api(request, `/admin/outputs/main-${preset}/rotate-key`, { expectedControlRevision: control.controlRevision }); return `/display/main-${preset}#key=${r.key}`; };
+  const outputUrl = async (preset = 'side') => `/display/main-${preset}`;
   return { session: s, producer, change, outputUrl };
 }
 async function login(page: Page) { await page.goto('/admin'); await page.getByLabel('운영자 키').fill(token); await page.getByRole('button', {name:'컨트롤 룸 열기'}).click(); await expect(page.getByRole('heading',{name:'컨트롤 룸',exact:true})).toBeVisible(); }
@@ -56,7 +56,7 @@ test('operator can create and end sessions without any AI account', async ({page
   await expect(page.locator('.session-strip h2')).toContainText('사람만으로 시작한 활동');
   await page.getByRole('button',{name:'종료',exact:true}).click(); await page.getByRole('button',{name:'세션 종료',exact:true}).click(); await expect(page.locator('.session-strip .badge')).toHaveText('종료');
 });
-test('display strips fragments, renders text safely, receives SSE, reconnects and expires after disconnect', async ({ page, request, context }) => {
+test('public display renders text safely, receives SSE, reconnects and expires after disconnect', async ({ page, request, context }) => {
   const fixture = await seed(request, 'minimal'); await page.setViewportSize({width:480,height:1080}); await page.goto(await fixture.outputUrl());
   await expect(page.locator('.broadcast h2')).toBeVisible(); expect(page.url()).not.toContain('#');
   await fixture.change([{ op:'set_now', value:{title:'<script>window.bad=1</script>',detail:'코드처럼 보이지만 일반 텍스트입니다.',status:'in_progress',next:null} }]);
@@ -67,11 +67,16 @@ test('display strips fragments, renders text safely, receives SSE, reconnects an
   await context.setOffline(false); await expect(page.locator('.broadcast h2')).toHaveText('<script>window.bad=1</script>', {timeout:10000});
   await page.reload(); await expect(page.locator('.broadcast h2')).toBeVisible();
 });
-test('key rotation clears an existing output and failed authentication has a neutral screen', async ({page, request}) => {
-  const fixture = await seed(request,'normal'); await page.goto(await fixture.outputUrl()); await expect(page.locator('.broadcast')).toBeVisible();
-  const c = await api(request,'/admin/control'); await api(request,'/admin/outputs/main-side/rotate-key',{expectedControlRevision:c.controlRevision}); await expect(page.locator('.broadcast')).toHaveCount(0);
-  await page.goto('/display/main-side#key=invalid'); await expect(page.locator('.broadcast')).toHaveCount(0); expect(await page.locator('#root').textContent()).toBe('');
+test('outputs open without credentials, accept legacy URLs and remain hidden after reload', async ({page, request, context}) => {
+  const fixture = await seed(request,'normal');
+  await context.clearCookies(); await page.goto(await fixture.outputUrl()); await expect(page.locator('.broadcast')).toBeVisible();
+  expect((await context.cookies()).some(c => c.name === 'display_session')).toBeFalsy();
+  await page.goto('/display/main-side#key=obsolete'); await expect(page.locator('.broadcast')).toBeVisible(); expect(page.url()).not.toContain('#');
+  const c = await api(request,'/admin/control'); await api(request,'/admin/control',{mode:'hidden',expectedControlRevision:c.controlRevision}); await expect(page.locator('.broadcast')).toHaveCount(0);
+  await page.reload(); await expect(page.locator('.broadcast')).toHaveCount(0); expect(await page.locator('#root').textContent()).toBe('');
+  const privateRead = await page.request.get('/api/v1/admin/state'); expect(privateRead.status()).toBe(401);
 });
+
 test('proposal review shows current and proposed values, requires explicit disclosure approval, and locks the result', async ({page,request}) => {
   const fixture = await seed(request,'minimal'); await fixture.change([{op:'set_now',value:{title:'検討後の公開活動',detail:'運営者が内容を確認しました。',status:'in_progress',next:null}}],'propose');
   await login(page); await page.getByRole('button',{name:/変更提案|변경 제안/}).click(); await expect(page.getByText('제안 내용',{exact:true})).toBeVisible();
