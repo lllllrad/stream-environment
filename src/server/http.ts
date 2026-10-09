@@ -6,6 +6,7 @@ import { DomainError, ensure } from '../contracts/errors.ts';
 import { LIMITS, OPERATIONS, pathAllowed, tokenHash } from '../contracts/validation.ts';
 import type { Actor, Control, Output, Proposal, Session } from '../contracts/types.ts';
 import { Engine, operator } from '../domain/engine.ts';
+import { sessionExport, exportMarkdown } from '../domain/export.ts';
 
 type Credential = { role: 'operator'; tokenHash: string; csrf?: string; expiresAt: number };
 type Client = { response: ServerResponse; screenId: string };
@@ -139,6 +140,15 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (get && path === '/api/v1/admin/control') return send(res, engine.control());
         if (post && path === '/api/v1/admin/control') { const b = await body(req); fields(b, ['expectedControlRevision','mode','activeSessionId','aiWritesEnabled','confirmRestore']); return send(res, engine.setControl(b)); }
         if (post && path === '/api/v1/admin/sessions') { const b = await body(req); fields(b, ['title','goal','expectedControlRevision']); return send(res, engine.createSession(b), 201); }
+        const exportRoute = path.match(/^\/api\/v1\/admin\/sessions\/([A-Za-z0-9_-]+)\/export$/);
+        if (get && exportRoute) {
+          const format = url.searchParams.get('format') ?? 'json';
+          ensure(['json','markdown'].includes(format), 'INVALID_EXPORT_FORMAT', 'Export format must be json or markdown.');
+          const record = sessionExport(engine.session(exportRoute[1]), engine.control()), extension = format === 'json' ? 'json' : 'md';
+          res.setHeader('Content-Disposition', `attachment; filename="${record.session.id}-r${record.session.revision}.${extension}"`);
+          res.writeHead(200, { 'Content-Type': format === 'json' ? 'application/json; charset=utf-8' : 'text/markdown; charset=utf-8' });
+          res.end(format === 'json' ? JSON.stringify(record, null, 2) + '\n' : exportMarkdown(record)); return;
+        }
         const lifecycle = path.match(/^\/api\/v1\/admin\/sessions\/([A-Za-z0-9_-]+)\/(lifecycle|select-work|purge)$/);
         if (post && lifecycle) {
           const b = await body(req), [, id, action] = lifecycle;

@@ -16,8 +16,8 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | --- | --- |
 | Dependency installation and locked build | Passed; exact dependency versions recorded in pnpm-lock.yaml |
 | TypeScript | Passed, `pnpm typecheck` / equivalent direct TypeScript invocation |
-| Domain, contract, HTTP, lease, backup and MCP tests | 36 tests passed |
-| Browser workflows and visual regression | 39 tests passed; six interaction/accessibility cases (including external MCP review) and 33 screenshot comparisons |
+| Domain, contract, HTTP, lease, backup, MCP and export tests | 39 tests passed |
+| Browser workflows and visual regression | 40 tests passed; seven interaction/accessibility cases (including external MCP review) and 33 screenshot comparisons |
 | Source-resolution screenshots | Three presets × ten fixtures: empty, minimal, normal, maximum, maximum work, crowded medium lengths, no optional widgets, tentative event, reported work failure, hidden |
 | 720p visual composition | Three scaled preset screenshots captured and inspected in a browser, separately from OBS |
 | Maximum-text geometry | Fixture text/section boxes stay inside their preset viewport; no auto font shrinking or output scrolling |
@@ -83,3 +83,7 @@ The browser suite submits actual activity/recap/notice wording through MCP, veri
 ## Rendered proposal preview follow-up
 
 Domain and HTTP tests verify all preset projections, stale re-evaluation, unknown/restricted disclosure preservation, no storage/publication side effects, hidden output isolation and operator-only access. The MCP browser workflow opens before/after previews for full, side and lower presets, confirms the suggested wording remains absent from the public output, and then explicitly approves it. A private review screenshot is generated at `artifacts/proposal-rendered-review.png`.
+
+## Session-export follow-up
+
+Three export tests verify the response schema/field whitelist, all visible events beyond the broadcast limit, private/withdrawn/expired content exclusion, original wording in JSON, literal safe Markdown, ended-session labeling, immutable reads, attachment headers, operator-only access and export failure after session purge. The browser test downloads actual JSON and Markdown files through the new session-record UI, checks held-content/ended-state semantics, filters records and confirms private/withdrawn content is absent. `artifacts/session-archive.png` records the reviewed operator layout.

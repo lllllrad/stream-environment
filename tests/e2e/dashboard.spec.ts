@@ -110,6 +110,30 @@ test('external MCP content proposals stay private until UI approval and then ren
   } finally { await client.close(); await display.close(); }
 });
 
+test('operator downloads filtered session records as JSON and literal Markdown, including held editorial content', async ({page,request}) => {
+  const fixture = await seed(request,'normal');
+  await fixture.change([{op:'upsert_event',event:{id:'withdraw_for_export',kind:'progress',text:'WITHDRAWN_EVENT',occurredAt:new Date().toISOString(),certainty:'confirmed'}},{op:'upsert_work_item',workItem:{id:'withdraw_work_export',title:'WITHDRAWN_WORK',status:'failed',publicResult:'WITHDRAWN_RESULT'}}]);
+  await fixture.change([{op:'retract_event',id:'withdraw_for_export'},{op:'retract_work_item',id:'withdraw_work_export'}]);
+  await fixture.change([{op:'set_now',value:{title:'PRIVATE_PROPOSAL_MARKER',detail:'Never in export',status:'in_progress',next:null}}],'propose');
+  let control = await api(request,'/admin/control'); await api(request,'/admin/control',{mode:'hold',expectedControlRevision:control.controlRevision});
+  await fixture.change([{op:'set_now',value:{title:'보류 중 기록된 마지막 활동',detail:'저장된 내용의 기록을 내보냅니다.',status:'in_progress',next:null}}]);
+  const current = await api(request,`/sessions/${fixture.session.id}/context`); control = await api(request,'/admin/control');
+  await api(request,`/admin/sessions/${current.id}/lifecycle`,{action:'end',expectedRevision:current.revision,expectedControlRevision:control.controlRevision});
+  await login(page); await page.getByRole('button',{name:'세션 기록',exact:true}).click();
+  const record = page.locator('.session-record').filter({hasText:fixture.session.id}); await expect(record).toHaveCount(1);
+  const read = async (download: import('@playwright/test').Download) => { const stream = await download.createReadStream(); const chunks = []; for await (const chunk of stream) chunks.push(chunk); return Buffer.concat(chunks).toString('utf8'); };
+  const [jsonDownload] = await Promise.all([page.waitForEvent('download'),record.getByRole('button',{name:/JSON 다운로드$/}).click()]);
+  expect(jsonDownload.suggestedFilename()).toMatch(/session_[A-Za-z0-9_-]+-r\d+\.json$/);
+  const json = await read(jsonDownload), data = JSON.parse(json);
+  expect(data.session.status).toBe('ended'); expect(data.publication).toBe('held'); expect(data.session.lastActivity.title).toBe('보류 중 기록된 마지막 활동');
+  for (const forbidden of ['PRIVATE_PROPOSAL_MARKER','WITHDRAWN_','sourceRefs','actorId','locks','tokenHash']) expect(json).not.toContain(forbidden);
+  const [markdownDownload] = await Promise.all([page.waitForEvent('download'),record.getByRole('button',{name:/Markdown 다운로드$/}).click()]);
+  expect(markdownDownload.suggestedFilename()).toMatch(/\.md$/); const markdown = await read(markdownDownload); expect(markdown).toContain('# Session content export'); expect(markdown).toContain('not a live activity'); expect(markdown).toContain('보류 중 기록된 마지막 활동');
+  await page.getByLabel('세션 상태',{exact:true}).selectOption('prepared'); await expect(record).toHaveCount(0);
+  await page.getByLabel('세션 상태',{exact:true}).selectOption('ended'); await expect(record).toHaveCount(1);
+  await page.screenshot({path:'artifacts/session-archive.png',fullPage:true});
+});
+
 test('keyboard navigation, dialog Escape, reduced motion, and broadcast text contrast',async ({page,request})=>{
   await seed(request,'normal');await login(page);await page.emulateMedia({reducedMotion:'reduce'});
   const create=page.getByRole('button',{name:'새 세션',exact:true});await create.focus();await page.keyboard.press('Enter');await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(create).toBeFocused();

@@ -1,0 +1,316 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SessionContentExport",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "kind": {
+      "const": "session_content_export"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "timezone": {
+      "const": "Asia/Seoul"
+    },
+    "publication": {
+      "enum": [
+        "published",
+        "held",
+        "hidden",
+        "not_applicable"
+      ]
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "status": {
+          "enum": [
+            "prepared",
+            "active",
+            "paused",
+            "ended"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "goal": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "recap": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "startedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastActivity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Now"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Event"
+          }
+        },
+        "workItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Work"
+          }
+        },
+        "selectedWorkId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 80
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "title",
+        "goal",
+        "recap",
+        "revision",
+        "createdAt",
+        "startedAt",
+        "endedAt",
+        "lastActivity",
+        "pin",
+        "events",
+        "workItems",
+        "selectedWorkId"
+      ]
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "kind",
+    "exportedAt",
+    "timezone",
+    "publication",
+    "session"
+  ],
+  "$defs": {
+    "Now": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "status": {
+          "enum": [
+            "preparing",
+            "in_progress",
+            "blocked",
+            "paused",
+            "complete"
+          ]
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "detail",
+        "status",
+        "next"
+      ]
+    },
+    "Event": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "kind": {
+          "enum": [
+            "topic",
+            "progress",
+            "decision",
+            "result",
+            "correction"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "certainty": {
+          "enum": [
+            "confirmed",
+            "tentative"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "text",
+        "occurredAt",
+        "certainty"
+      ]
+    },
+    "Pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "expiresAt"
+      ]
+    },
+    "Work": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "status": {
+          "enum": [
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "publicResult": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status",
+        "publicResult"
+      ]
+    }
+  }
+}

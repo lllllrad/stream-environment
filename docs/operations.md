@@ -87,3 +87,13 @@ P0 listens only on `127.0.0.1`. It accepts the matching localhost/127.0.0.1 Host
 ## Production checks still requiring a person
 
 Check actual OBS source reload/scene transitions, 1080p and 720p readability, contrast over representative video, and the ten-second viewer-comprehension goal. Run `pnpm soak --seconds 28800` on the intended machine, record OBS/browser/OS versions, and inspect memory trends. Browser screenshots and a short synthetic smoke run do not complete these operational checks.
+
+## Export session records
+
+Open **Session records**, filter by lifecycle state if needed, and download JSON or Markdown for the intended session. Exports are operator-only downloads, including active, prepared, paused and ended sessions. No public archive route or producer/MCP export permission is added. Filenames contain the session ID and captured revision, not user-provided titles.
+
+An export captures the current editorial content at the returned revision, including stored edits received while publication was held/hidden. It is not a history of exactly what viewers saw and is not a restorable database backup. The record contains session metadata, recap, last recorded activity, all non-retracted timeline events and reported work, and an unexpired viewer notice. An ended session's last activity is explicitly historical.
+
+Proposals, provenance/source references, producer/owner identities, credentials, lock reasons, receipts, audit records, retracted items and expired notices are excluded. The [JSON export schema](../contracts/session-export.schema.json) declares the exact fields. Markdown uses English headings and preserves content in its original language as escaped literal text, preventing stored HTML, link syntax or Markdown delimiters from becoming active content. No translation/model call is performed.
+
+Downloads are written by the browser outside the live database. Purging a session prevents new exports but does not delete already downloaded files. Include exports in your manual sensitive-content cleanup and retention procedure.

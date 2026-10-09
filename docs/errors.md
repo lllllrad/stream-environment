@@ -28,6 +28,7 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `DISCLOSURE_REQUIRED` | 422 | Auto-apply requires public provenance and a registered publishing grant; a new explicit proposal is a separate request. |
 | `DISCLOSURE_REVIEW_REQUIRED` | 422 | The operator must explicitly acknowledge public suitability of unknown/restricted content. |
 | `RESTORE_CONFIRMATION_REQUIRED`, `CONFIRMATION_REQUIRED` | 422 | Perform the explicit human confirmation for publishing recovery or permanent cleanup. |
+| `INVALID_EXPORT_FORMAT` | 422 | Use `format=json` or `format=markdown` on the operator session export route. |
 | `INVALID_PATH`, `INVALID_CURSOR` | 422 | Use a permitted field path or the returned nonnegative cursor. |
 | `CONTENT_TYPE_REQUIRED`, `INVALID_JSON`, `BODY_TOO_LARGE` | 422 | Send an application/json object no larger than 64 KiB. |
 | `RATE_LIMITED` | 429 | Back off within the configured producer quota; avoid unnecessary repeated context reads. |

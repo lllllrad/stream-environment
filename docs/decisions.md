@@ -11,7 +11,7 @@ The supplied requirements describe the product, not instructions for the develop
 | Deployment | Loopback binding only in P0. Remote deployment requires a separately reviewed HTTPS reverse proxy, configured host/origin allowlists, and access controls; no tunnel is created. |
 | Authentication | Operator bearer credential exchanged for an HttpOnly cookie plus CSRF token; producer bearer tokens; anonymous read-only display pages, snapshots and SSE per the user's follow-up request. Only operator/producer token hashes are stored in SQLite. |
 | Dependencies | Exact package versions and a pnpm lockfile; no runtime LLM calls, external fonts, or remotely loaded assets. |
-| P1 | Links/images/QR, numeric progress, arbitrary layouts, export UI, and real work execution are deferred as specified. |
+| P1 | Links/images/QR, numeric progress, activity templates, arbitrary layouts, and real work execution are deferred as specified. |
 | Validation | Automated domain, HTTP, browser, and screenshot checks are recorded separately from actual OBS review and the eight-hour soak. Unperformed checks are never claimed as passed. |
 | Dense layouts | Long content activates a compact layout without reducing minimum text sizes. Full output keeps one recent event; side output omits the next activity and timeline. Recap line limits remain fixed. Omitted widgets are removed from the public DTO. |
 | Auxiliary slot | Full and side outputs show one notice or work item. A pinned notice takes priority unless the operator explicitly selects a work item. This narrows the initial full preset to prevent maximum-length content from colliding. |
@@ -28,3 +28,7 @@ The optional MCP adapter from requirements section 10.2 is promoted from P1 to i
 ## Rendered proposal review
 
 Private operator proposal previews simulate the same domain candidate used for approval against the current session revision and pass it through the normal preset projection. They show hypothetical content even while publication is held/hidden, clearly labeled in the UI. The response records original/current revisions and the actual publication state. Previewing creates no receipt, proposal change, audit entry, lock or public revision; disclosure and stale-review approval requirements remain enforced.
+
+## Session content export
+
+The P1 session-record export is implemented as an authenticated operator download in JSON or Markdown. It serializes an explicit content/metadata whitelist, all non-retracted visible items and unexpired notices. Held/hidden stored edits are included and labeled as editorial content; this does not claim publication history. Original wording is preserved, while generated Markdown structure is English and stored punctuation is escaped. Private operational data is excluded rather than hidden in the file. Exports do not change revisions or publication and are separate from restorable SQLite backups.

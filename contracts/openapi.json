@@ -1615,6 +1615,137 @@
         }
       }
     },
+    "/api/v1/admin/sessions/{id}/export": {
+      "get": {
+        "summary": "Download an editorial session record as JSON or Markdown",
+        "description": "Operator-only attachment of the current stored content, including held edits. Not a publication history or database backup. Excludes retracted items, expired notices, proposals, provenance, ownership, credentials, locks, receipts and audit data. English Markdown headings preserve the original content wording as escaped literal text. GET is read-only and needs no CSRF token.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionExport"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "Attachment filename contains only session ID, captured revision and extension.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "json",
+                "markdown"
+              ],
+              "default": "json"
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/admin/sessions/{id}/lifecycle": {
       "post": {
         "summary": "Start, pause, resume or end a session",
@@ -3668,6 +3799,9 @@
       }
     },
     "schemas": {
+      "SessionExport": {
+        "$ref": "./session-export.schema.json"
+      },
       "ChangeSet": {
         "$ref": "./change-set.schema.json"
       },

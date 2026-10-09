@@ -32,7 +32,7 @@ Interface labels and sample broadcast content are Korean; display time is Asia/S
 - Per-producer session/operation/field grants, proposal-only clients, review comparisons and rendered proposal previews, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
 - SQLite transactions for state, audit deltas, receipts, and per-output public snapshots; canonical idempotency, revision checks, observation ordering, atomic batches, and safe restart recovery.
 - Anonymous read-only outputs, latest-state SSE reconnect, bounded content leases, plain-text rendering, request limits, and producer rate limits.
-- Field-wise undo, full-session sensitive-content scrubbing, consistent backups, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.
+- Field-wise undo, full-session sensitive-content scrubbing, consistent backups, operator-only JSON/Markdown session exports, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.
 
 Long content uses a compact preset while retaining readable font sizes. Auxiliary content is capped or omitted on the server, and longer lines use ellipses. One notice or work item occupies the auxiliary slot; an explicit work selection overrides the notice. See [decisions](docs/decisions.md).
 
@@ -74,7 +74,7 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Contracts and operations
 
-- [OpenAPI](contracts/openapi.json), [ChangeSet](contracts/change-set.schema.json), [public snapshot](contracts/public-snapshot.schema.json), [receipt](contracts/change-receipt.schema.json), and [error](contracts/error.schema.json).
+- [OpenAPI](contracts/openapi.json), [ChangeSet](contracts/change-set.schema.json), [public snapshot](contracts/public-snapshot.schema.json), [receipt](contracts/change-receipt.schema.json), [error](contracts/error.schema.json), and [session export](contracts/session-export.schema.json).
 - [Client guide](docs/client-guide.md) and [error recovery](docs/errors.md).
 - [OBS, credentials, backups, recovery, and cleanup](docs/operations.md).
 - [Implementation decisions](docs/decisions.md) and [validation record](docs/verification.md).
@@ -83,7 +83,7 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Boundaries
 
-The server binds to loopback only and rejects unconfigured Host/Origin values. Remote/cloud AI access needs a separately implemented HTTPS access configuration; registering a localhost address does not make it cloud-accessible. Media/links/QR, freeform layout editors, numeric progress, and work execution remain P1. There are no runtime model calls or audio/video/transcript collection.
+The server binds to loopback only and rejects unconfigured Host/Origin values. Remote/cloud AI access needs a separately implemented HTTPS access configuration; registering a localhost address does not make it cloud-accessible. Media/links/QR, freeform layout editors, numeric progress, activity templates, and real work execution remain deferred. There are no runtime model calls or audio/video/transcript collection.
 
 Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight-hour soak require separate operational validation. The [validation record](docs/verification.md) distinguishes executed checks from pending ones.
 
