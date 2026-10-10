@@ -1,6 +1,6 @@
 # FRAME — Broadcast Activity Dashboard
 
-A local activity dashboard for viewers who join mid-session. External clients submit structured display content over HTTP or local MCP; the operator decides what can be published. Fixed-resolution whole-canvas overlays compose widgets in application scenes and receive public snapshots over SSE. Three legacy preset outputs remain available.
+A local activity dashboard for viewers who join mid-session. External clients submit token-free reviewed proposals or authenticated producer updates over HTTP or local MCP; the operator decides what can be published. Fixed-resolution whole-canvas overlays compose widgets in application scenes and receive public snapshots over SSE. Three legacy preset outputs remain available.
 
 ## Quick start
 
@@ -112,6 +112,8 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Contracts and operations
 
+AI content and layout suggestions require no token through the **Public proposals** API or token-free MCP mode. See [token-free proposals](docs/public-proposals.md) for discovery, examples and review. Immediate changes retain their authenticated endpoints.
+
 Open [Swagger UI](http://127.0.0.1:4310/swagger) (also `/docs`) to browse the API and use **Try it out** with an explicitly authorized producer/operator or controller token. All assets are served locally. See the [Swagger guide](docs/swagger.md) for authentication and request examples.
 
 AI agents can fetch the single-file OpenAPI 3.1 specification at `http://<dashboard-computer-IP>:4310/openapi.json` without a token. The served document uses that dashboard origin for `servers[0].url`, includes all schemas, stable operation IDs, and proposal/apply request examples. Producer API calls require a registered producer bearer token; Direct control operations require a separate scoped controller token. See [OpenAPI discovery and import](docs/client-guide.md#openapi-discovery-and-import).
@@ -131,6 +133,6 @@ Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight
 
 ## External content proposals with MCP
 
-Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_sources`, `get_context`, `get_layouts`, `render_preview`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
+For token-free content/layout suggestions, omit `DASHBOARD_PRODUCER_TOKEN` and use the public proposal mode described above. For authenticated producer access, register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_sources`, `get_context`, `get_layouts`, `render_preview`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
 
 The requirements already cover current activity, recap, events, notices and session wording proposals (sections 8–9), independently of reported work items. The optional adapter from section 10.2 is now implemented. Operator approval controls publication; public OBS pages require no login.

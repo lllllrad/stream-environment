@@ -43,6 +43,10 @@ An event or work withdrawal is retained as a tombstone and immediately removed f
 
 If a disconnected OBS source continues to show unsafe text, turn off the source's eye icon in OBS immediately. The server cannot deliver an emergency command across a broken connection. The page stops displaying content when its content lease expires, normally within 30 seconds of its last valid matching snapshot/heartbeat. A heartbeat announcing a newer version cannot keep old content alive.
 
+## Token-free suggestions
+
+External clients can suggest content and layouts without credentials using [public proposal APIs or token-free MCP](public-proposals.md). Review items identify the submitter as anonymous; no actual content or layout changes until operator approval. Public context omits unpublished wording and stored captions. Stop AI writes also pauses these public submissions. Use producer registration when a client needs granted private context/render inspection or automatic publication.
+
 ## Producers and review
 
 Register each client with the narrowest session, operation, and field grants it needs. All content sources default to proposal-only, including for existing publishing producers. Explicitly allow only the needed sources in **Data source publication policy** within Producers. Automatic publication also requires opt-in on producer registration and `disclosure: public`. Otherwise use `intent: propose`. Private/unknown provenance never silently falls back from a rejected apply to a proposal.

@@ -1,5 +1,7 @@
 # AI layout proposals
 
+A separate [token-free proposal API](public-proposals.md) supports anonymous suggestions with partial widget settings and preserved private captions. The authenticated producer contract below retains explicit grants and complete settings.
+
 External agents can suggest the complete widget configuration for one fixed-resolution overlay and scene: geometry, visibility, stacking order, presentation settings, widget addition and removal. The operator reviews actual before/after output and approves or rejects it. Agents cannot save layouts directly, activate scenes, add resolutions or install plugins through this feature.
 
 ## Permissions and discovery

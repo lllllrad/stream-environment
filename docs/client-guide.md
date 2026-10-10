@@ -4,6 +4,8 @@ The dashboard receives structured, public-ready text. It does not summarize tran
 
 Layout edits have a separate reviewed protocol with an explicit producer grant. See [AI layout proposals](layout-proposals.md) for validation, candidate geometry inspection, submission and decision status over HTTP/MCP. The content protocol below remains unchanged.
 
+For content/layout suggestions without registration or any token, use the dedicated [public proposal flow](public-proposals.md). The authenticated producer workflow below supports scoped private context and optional granted automatic publication.
+
 ## Connection workflow
 
 For clients on another computer, use `http://<dashboard-computer-IP>:4310/api/v1` as the base URL. The server binds to `0.0.0.0` by default; a DNS/computer name needs an `ALLOWED_HOSTS` entry. See [network deployment](operations.md#deployment-boundary). The example below uses localhost for a client running on the dashboard computer.

@@ -31,6 +31,8 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `INVALID_EXPORT_FORMAT` | 422 | Use `format=json` or `format=markdown` on the operator session export route. |
 | `INVALID_PATH`, `INVALID_CURSOR` | 422 | Use a permitted field path or the returned nonnegative cursor. |
 | `CONTENT_TYPE_REQUIRED`, `INVALID_JSON`, `BODY_TOO_LARGE` | 422 | Send an application/json object no larger than 64 KiB. |
+| `PROPOSAL_ONLY` | 403 | The token-free public content API accepts only `intent: propose`. Immediate changes use authenticated grants. |
+| `PROPOSAL_LIMIT` | 429 | Wait for operator review; public queues permit 32 anonymous pending items and stop at 128 global pending items. |
 | `SOURCE_REVIEW_REQUIRED` | 403 | At least one affected source is proposal-only or unregistered. Submit a new reviewed proposal; only the operator can enable automatic source publication. |
 | `CONTROL_FORBIDDEN` | 403 | Use a scene/widget instance and settings allowed by this controller token and the current plugin. |
 | `CONTROLLER_LIMIT` | 429 | Revoke an unused credential before issuing another; at most 128 active control tokens are supported. |

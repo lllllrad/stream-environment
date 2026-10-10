@@ -4,6 +4,10 @@ Open `http://<dashboard-computer-IP>:4310/swagger` (or `/docs`) to browse the da
 
 Run `just build` after installing dependencies, then `just start` or `just run`. Swagger UI assets are pinned and copied into `dist` during the build. The dashboard serves them locally, so no CDN or internet connection is required at runtime. The upstream license is available at `/swagger/LICENSE.txt`.
 
+## Submit without a token
+
+Select **Public proposals** to read proposal context and submit content or layout suggestions without Authorize. All suggestions stay private until operator approval. See [token-free examples](public-proposals.md). Protected operations use the separate authentication steps below.
+
 ## Authorize and execute
 
 1. Open **Authorize** and enter the raw token, without the `Bearer` prefix.

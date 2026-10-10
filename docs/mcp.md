@@ -4,6 +4,8 @@ The original requirements already cover **actual viewer-facing content**, not ju
 
 ## Connect an MCP client
 
+For token-free reviewed suggestions, set only `DASHBOARD_URL`, omit `DASHBOARD_PRODUCER_TOKEN` from the configuration, and launch the same script. No registration step is needed. See [public proposal examples and tool names](public-proposals.md). The steps below configure authenticated producer access.
+
 1. Start the dashboard with `pnpm start` after `pnpm build`.
 2. In the operator's **Producers** page, register a producer for the intended session and content fields. Leave automatic publication off to require review. For activity summaries and notices, grant `/now`, `/session/recap`, `/pin` and `/events/*`. Grant `/session/title` and `/session/goal` only if the client needs to suggest those fields.
 3. Store the once-shown producer token in the MCP host's secret environment as `DASHBOARD_PRODUCER_TOKEN`. Do not use the operator key.
@@ -31,6 +33,10 @@ Run the stdio adapter on the AI agent computer. When the dashboard runs on anoth
 The adapter accepts a configured HTTP or HTTPS origin without credentials, query, fragment or path. HTTPS requires an independently available HTTPS endpoint; the dashboard process itself serves HTTP. It connects to the existing dashboard over authenticated HTTP and never opens SQLite separately. It refuses operator credentials before reading context. Revocation and changed grants are enforced on every request. MCP transport remains local stdio on the agent computer; this does not expose a remote MCP server or make a private network reachable by a cloud-only host.
 
 The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelcontextprotocol.io/v2/). Its tool schemas reuse the repository's [ChangeSet JSON Schema](../contracts/change-set.schema.json) through the SDK's [JSON Schema adapter](https://ts.sdk.modelcontextprotocol.io/v2/advanced/schema-libraries); content operations and length rules are not duplicated in an MCP-only format.
+
+## Token-free proposal mode
+
+Omit `DASHBOARD_PRODUCER_TOKEN` to use `get_proposal_context`, `validate`, `propose`, `validate_layout` and `propose_layout` without registration. This mode exposes only the public proposal APIs and uses partial widget settings while preserving omitted captions. It has no apply/private context/approval tools. See [token-free proposal flow](public-proposals.md). With a producer token, the authenticated tool set below remains unchanged.
 
 ## Tools
 
