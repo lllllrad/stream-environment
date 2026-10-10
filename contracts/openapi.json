@@ -34,6 +34,1011 @@
     }
   ],
   "paths": {
+    "/api/v1/overlays": {
+      "get": {
+        "operationId": "getLayouts",
+        "tags": [
+          "Producer"
+        ],
+        "summary": "Read resolutions, scenes, layouts and widget plugins",
+        "description": "Authenticated layout metadata and operator-authored widget settings only; contains no session content. Every overlay/scene pair has a layout. Array order is back-to-front stacking.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayCatalog"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/overlays": {
+      "get": {
+        "operationId": "getApiV1AdminOverlays",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Read editable overlay configuration",
+        "description": "",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayCatalog"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postApiV1AdminOverlays",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Add a unique fixed-resolution overlay and layouts for every scene",
+        "description": "",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 640,
+                    "maximum": 3840
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 360,
+                    "maximum": 2160
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "name",
+                  "width",
+                  "height"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/scenes": {
+      "post": {
+        "operationId": "postApiV1AdminScenes",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Clone a scene across every overlay resolution",
+        "description": "",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "sourceSceneId": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/scene": {
+      "post": {
+        "operationId": "postApiV1AdminScene",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Select the active scene for every overlay",
+        "description": "Selection is saved during hold/hidden, then becomes visible on publication restore. Session lifecycle and application scenes are independent.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "sceneId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/layouts": {
+      "post": {
+        "operationId": "postApiV1AdminLayouts",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Save a complete validated layout at the expected configuration revision",
+        "description": "Whole-widget replacement, maximum 32 unique instances, installed types only, integer geometry inside the canvas. Rejects stale revision atomically. Hidden widget blocks and operator text settings are excluded from public projections.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverlayConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "overlayId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "widgets": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/components/schemas/WidgetInstance"
+                    }
+                  }
+                },
+                "required": [
+                  "expectedRevision",
+                  "overlayId",
+                  "sceneId",
+                  "widgets"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/layouts/preview": {
+      "post": {
+        "operationId": "postApiV1AdminLayoutsPreview",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Project an unsaved layout for private review",
+        "description": "Hypothetical auto projection of current stored content. No saving, approval or publication. Uses the same renderer as OBS.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "overlayId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "widgets": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/components/schemas/WidgetInstance"
+                    }
+                  }
+                },
+                "required": [
+                  "overlayId",
+                  "sceneId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{id}/render-preview": {
+      "post": {
+        "operationId": "renderPreview",
+        "tags": [
+          "Producer"
+        ],
+        "summary": "Inspect actual visible candidate text at fixed pixel dimensions",
+        "description": "Read-only, scope-filtered simulation with normal ChangeSet validation. Browser renders exact width/height, reports fully visible Unicode code-point ranges [start,end), font sizes, field/widget rectangles, overlap and clipping. Scroll is frozen at its first frame. Omitted fields are unbound, hidden, empty or outside producer grants. Never creates proposal, receipt, locks or publication. Snapshot is hypothetical even during hold/hidden; sessionRevision/configRevision identify the inspected version. Optional PNG is private. Requires installed Chromium, built render bundle. At most two concurrent inspections; RENDER_BUSY=429, RENDER_UNAVAILABLE=503. Browser/font differences from OBS can affect pixels.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "overlayId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "change": {
+                    "$ref": "#/components/schemas/ChangeSet"
+                  },
+                  "includeImage": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "overlayId"
+                ]
+              },
+              "example": {
+                "overlayId": "overlay-1920x1080",
+                "sceneId": "live",
+                "includeImage": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenapijson",
@@ -2806,7 +3811,7 @@
           "Operator"
         ],
         "summary": "Render hypothetical before/after content for private operator review",
-        "description": "Read-only simulation of approval against the current session revision. Uses normal preset projection even during hold/hidden, labeled hypothetical. Does not approve, promote disclosure, create a receipt/lock or publish. Stale proposal baseRevision remains unchanged.",
+        "description": "Read-only simulation of approval against the current session revision. Supports legacy presets or full-canvas overlay IDs and selected scene, even during hold/hidden. Does not approve, promote disclosure, create a receipt/lock or publish. Stale proposal baseRevision remains unchanged.",
         "security": [
           {
             "bearerAuth": []
@@ -2909,6 +3914,14 @@
           },
           {
             "name": "screenId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          {
+            "name": "sceneId",
             "in": "query",
             "schema": {
               "type": "string",
@@ -5131,12 +6144,10 @@
                           "maximum": 10
                         },
                         "message": {
-                          "type": "string",
-                          "maxLength": 160
+                          "const": ""
                         },
                         "detail": {
-                          "type": "string",
-                          "maxLength": 300
+                          "const": ""
                         }
                       }
                     },
@@ -5191,6 +6202,25 @@
                     "visible",
                     "settings",
                     "blocks"
+                  ],
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "visible": {
+                            "const": false
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "blocks": {
+                            "type": "array",
+                            "maxItems": 0
+                          }
+                        }
+                      }
+                    }
                   ]
                 }
               }
@@ -5531,6 +6561,23 @@
                 },
                 "sessionId": {
                   "type": "null"
+                },
+                "overlay": {
+                  "type": "object",
+                  "properties": {
+                    "widgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "blocks": {
+                            "type": "array",
+                            "maxItems": 0
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -6893,6 +7940,623 @@
           "changedPaths",
           "before",
           "after"
+        ]
+      },
+      "WidgetInstance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "x",
+          "y",
+          "width",
+          "height",
+          "visible",
+          "settings"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,59}$"
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 48,
+            "maximum": 3840
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 2160
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fontSize",
+              "minFontSize",
+              "padding",
+              "maxLines",
+              "overflow",
+              "background",
+              "color",
+              "showDetails",
+              "maxItems",
+              "message",
+              "detail"
+            ],
+            "properties": {
+              "fontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "minFontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "padding": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 64
+              },
+              "maxLines": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              "overflow": {
+                "enum": [
+                  "clip",
+                  "ellipsis",
+                  "shrink",
+                  "scroll"
+                ]
+              },
+              "background": {
+                "type": "string",
+                "pattern": "^(#[0-9a-fA-F]{6}|transparent)$"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "showDetails": {
+                "type": "boolean"
+              },
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 160
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        }
+      },
+      "Overlay": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 640,
+            "maximum": 3840
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 360,
+            "maximum": 2160
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "width",
+          "height"
+        ]
+      },
+      "Scene": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "Layout": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "overlayId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "sceneId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "widgets": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/WidgetInstance"
+            }
+          }
+        },
+        "required": [
+          "overlayId",
+          "sceneId",
+          "revision",
+          "widgets"
+        ]
+      },
+      "OverlayConfig": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activeSceneId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "overlays": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/components/schemas/Overlay"
+            }
+          },
+          "scenes": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/Scene"
+            }
+          },
+          "layouts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Layout"
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "activeSceneId",
+          "overlays",
+          "scenes",
+          "layouts"
+        ]
+      },
+      "WidgetPlugin": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "sourcePaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "settingsKeys": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "defaults": {
+            "type": "object",
+            "properties": {
+              "fontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "minFontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "padding": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 64
+              },
+              "maxLines": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              "overflow": {
+                "enum": [
+                  "clip",
+                  "ellipsis",
+                  "shrink",
+                  "scroll"
+                ]
+              },
+              "background": {
+                "type": "string",
+                "pattern": "^(#[0-9a-fA-F]{6}|transparent)$"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "showDetails": {
+                "type": "boolean"
+              },
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 160
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "type",
+          "version",
+          "label",
+          "description",
+          "sourcePaths",
+          "settingsKeys"
+        ]
+      },
+      "OverlayCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/OverlayConfig"
+          },
+          "plugins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WidgetPlugin"
+            }
+          }
+        },
+        "required": [
+          "config",
+          "plugins"
+        ]
+      },
+      "FieldVisibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "visibleText": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "totalCodePoints": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "visibleCodePoints": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "visibleRanges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "start": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ]
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "fontSize": {
+            "type": "number"
+          },
+          "rect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number"
+              },
+              "height": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "text",
+          "visibleText",
+          "totalCodePoints",
+          "visibleCodePoints",
+          "visibleRanges",
+          "truncated",
+          "fontSize",
+          "rect"
+        ]
+      },
+      "VisibilityReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "width": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "overlayId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "sceneId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "layoutRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "type": {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                "rect": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "x": {
+                      "type": "number"
+                    },
+                    "y": {
+                      "type": "number"
+                    },
+                    "width": {
+                      "type": "number"
+                    },
+                    "height": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "width",
+                    "height"
+                  ]
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "overflow": {
+                  "enum": [
+                    "clip",
+                    "ellipsis",
+                    "shrink",
+                    "scroll"
+                  ]
+                },
+                "scrolling": {
+                  "type": "boolean"
+                },
+                "overlaps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FieldVisibility"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "rect",
+                "visible",
+                "overflow",
+                "scrolling",
+                "overlaps",
+                "fields"
+              ]
+            }
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "overlayId",
+          "sceneId",
+          "configRevision",
+          "layoutRevision",
+          "widgets"
+        ]
+      },
+      "RenderPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/PublicSnapshot"
+          },
+          "sessionRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "changedPaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "hypothetical": {
+            "const": true
+          },
+          "report": {
+            "$ref": "#/components/schemas/VisibilityReport"
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mimeType": {
+                "const": "image/png"
+              },
+              "base64": {
+                "type": "string",
+                "contentEncoding": "base64"
+              }
+            },
+            "required": [
+              "mimeType",
+              "base64"
+            ]
+          }
+        },
+        "required": [
+          "snapshot",
+          "sessionRevision",
+          "configRevision",
+          "changedPaths",
+          "hypothetical",
+          "report"
         ]
       }
     }

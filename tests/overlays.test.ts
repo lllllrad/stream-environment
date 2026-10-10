@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { setup, apply, now, event, change } from './helpers.ts';
 import { operator, Engine } from '../src/domain/engine.ts';
 
+test('new overlay outputs initialize current auto content but never introduce unpublished content during hold or hidden migration',()=>{
+  for(const mode of ['auto','hold','hidden'] as const){const x=setup();try{apply(x.engine,x.producer,x.session.id,[now('Existing activity')]);if(mode!=='auto')x.engine.setControl({expectedControlRevision:x.engine.control().controlRevision,mode});for(const o of x.engine.overlayConfig().overlays)x.store.delete(`output:${o.id}`);const restarted=new Engine(x.store);const widgets=restarted.output('overlay-1920x1080').snapshot.overlay!.widgets;if(mode==='auto')assert.ok(widgets.flatMap(w=>w.blocks).some(b=>b.text==='Existing activity'));else assert.ok(widgets.every(w=>w.blocks.length===0));}finally{x.store.close();}}
+});
+
 test('overlay/scene matrix is complete, resolution unique, and geometry/settings edits are transactional and versioned',()=>{
   const x=setup(),e=x.engine;
   try{

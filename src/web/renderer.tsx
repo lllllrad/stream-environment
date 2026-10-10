@@ -2,11 +2,13 @@ import type { CSSProperties } from 'react';
 import type { PublicSnapshot } from '../contracts/types.ts';
 import './renderer.css';
 import { DIMENSIONS } from '../contracts/display.ts';
+import { OverlayRenderer } from './overlay-renderer.tsx';
 export { DIMENSIONS };
 export const STATUS: Record<string, string> = { prepared: '준비', active: '진행 중', paused: '일시정지', ended: '종료', preparing: '준비 중', in_progress: '진행 중', blocked: '확인 필요', complete: '완료', queued: '대기', running: '작업 중', succeeded: '완료 보고', failed: '실패 보고', cancelled: '취소' };
 const KIND: Record<string, string> = { topic: '주제 전환', progress: '진행', decision: '결정', result: '결과', correction: '정정' };
 export function time(value: string): string { return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value)); }
 export function Broadcast({ snapshot }: { snapshot: PublicSnapshot | null }) {
+  if (snapshot?.overlay && snapshot.mode !== 'hidden') return <OverlayRenderer frame={snapshot.overlay}/>;
   if (!snapshot?.content || snapshot.mode === 'hidden') return null;
   const c = snapshot.content, preset = snapshot.preset;
   return <div className={`broadcast preset-${preset} ${snapshot.compact ? 'layout-compact' : ''}`} data-preset={preset}>
@@ -36,6 +38,6 @@ export function Broadcast({ snapshot }: { snapshot: PublicSnapshot | null }) {
   </div>;
 }
 export function ScaledPreview({ snapshot, width = 280 }: { snapshot: PublicSnapshot | null; width?: number }) {
-  const [w, h] = DIMENSIONS[snapshot?.preset ?? 'side']; const ratio = width / w;
+  const [w, h] = snapshot?.overlay ? [snapshot.overlay.width,snapshot.overlay.height] : DIMENSIONS[snapshot?.preset ?? 'side']; const ratio = width / w;
   return <div className="preview-scale" style={{ width, height: h * ratio }}><div className="preview-canvas" style={{ width: w, height: h, transform: `scale(${ratio})`, '--canvas-scale': ratio } as CSSProperties}><Broadcast snapshot={snapshot} /></div></div>;
 }

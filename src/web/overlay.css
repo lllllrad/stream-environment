@@ -1,0 +1,6 @@
+.overlay-canvas{position:relative;overflow:hidden;background:transparent;font-family:"Segoe UI","Malgun Gothic",sans-serif;color:#f3f5ed;isolation:isolate}
+.overlay-canvas *{box-sizing:border-box}.overlay-widget{position:absolute;overflow:hidden;border-radius:12px;box-shadow:0 6px 24px #0004}
+.overlay-inner{height:100%;width:100%;overflow:hidden;position:relative}.overlay-flow{position:relative;line-height:1.35}
+.overlay-field{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.35;margin:0 0 .5em;font-size:1em;letter-spacing:normal;font-weight:400}
+.overlay-field.role-heading{font-size:1.2em;font-weight:700}.overlay-field.role-label{font-size:.65em;opacity:.8;letter-spacing:.05em}
+.overlay-scroll{animation:overlay-scroll 18s linear infinite alternate;animation-delay:2s}@keyframes overlay-scroll{0%,10%{transform:translateY(0)}90%,100%{transform:translateY(calc(-1 * var(--travel)))}}

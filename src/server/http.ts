@@ -7,6 +7,8 @@ import { LIMITS, OPERATIONS, pathAllowed, tokenHash } from '../contracts/validat
 import type { Actor, Control, Output, Proposal, Session } from '../contracts/types.ts';
 import { Engine, operator } from '../domain/engine.ts';
 import { sessionExport, exportMarkdown } from '../domain/export.ts';
+import { widgetCatalog } from '../widgets/registry.ts';
+import { RenderService } from './render.ts';
 
 type Credential = { role: 'operator'; tokenHash: string; csrf?: string; expiresAt: number };
 type Client = { response: ServerResponse; screenId: string };
@@ -26,6 +28,7 @@ async function body(req: IncomingMessage): Promise<any> {
 function pageNumber(value: string | null, fallback: number): number { if (!value) return fallback; ensure(/^\d+$/.test(value) && Number.isSafeInteger(Number(value)), 'INVALID_CURSOR', 'Cursor must be a nonnegative integer.'); return Number(value); }
 
 export function createHttp(engine: Engine, options: HttpOptions) {
+  const renderer = new RenderService(options.webDir);
   const openapi = JSON.parse(readFileSync(new URL('../../contracts/openapi.json', import.meta.url), 'utf8'));
   const clients = new Set<Client>(), buckets = new Map<string, { tokens: number; at: number }>();
   const stats = { requests: 0, rejected: {} as Record<string, number>, lastRequestMs: 0, totalRequestMs: 0 };
@@ -116,6 +119,14 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         const isAdmin = path.startsWith('/api/v1/admin/');
         if (isAdmin) ensure(auth.actor.role === 'operator', 'FORBIDDEN', 'Operator permission is required.', 403);
         if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, limits: LIMITS, leaseMs: engine.leaseMs });
+        if (get && (path === '/api/v1/overlays' || path === '/api/v1/admin/overlays')) return send(res,{config:engine.overlayConfig(),plugins:widgetCatalog()});
+        const renderRoute = path.match(/^\/api\/v1\/sessions\/([A-Za-z0-9_-]+)\/render-preview$/);
+        if (post && renderRoute) {const b=await body(req);fields(b,['overlayId','sceneId','change','includeImage']);ensure(typeof b.overlayId==='string'&&(b.sceneId===undefined||typeof b.sceneId==='string')&&(b.includeImage===undefined||typeof b.includeImage==='boolean'),'SCHEMA_VALIDATION','Invalid render preview options.');return send(res,await renderer.render(engine.renderPreview(auth.actor,renderRoute[1],b),b.includeImage));}
+        if (post && path === '/api/v1/admin/layouts/preview') {const b=await body(req);fields(b,['overlayId','sceneId','widgets']);return send(res,engine.layoutPreview(b.overlayId,b.sceneId,b.widgets));}
+        if (post && ['/api/v1/admin/overlays','/api/v1/admin/scenes','/api/v1/admin/scene','/api/v1/admin/layouts'].includes(path)) {
+          const b=await body(req),actions:Record<string,string>={'/api/v1/admin/overlays':'create_overlay','/api/v1/admin/scenes':'create_scene','/api/v1/admin/scene':'activate_scene','/api/v1/admin/layouts':'save_layout'};
+          const allowed:Record<string,string[]>={create_overlay:['expectedRevision','name','width','height'],create_scene:['expectedRevision','name','sourceSceneId'],activate_scene:['expectedRevision','sceneId'],save_layout:['expectedRevision','overlayId','sceneId','widgets']};const action=actions[path];fields(b,allowed[action]);return send(res,engine.updateOverlays({...b,action}));
+        }
         if (get && path === '/api/v1/sessions/current') {
           const c = engine.control(); const s = c.activeSessionId ? engine.readSession(auth.actor, c.activeSessionId) : null;
           return send(res, { session: s ? { id: s.id, status: s.status, revision: s.revision } : null });
@@ -141,7 +152,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/logout') { const raw = cookie(req, 'operator_session'); if (raw) engine.store.delete(`auth:${tokenHash(raw)}`); res.setHeader('Set-Cookie', 'operator_session=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0'); return send(res, { ok: true }); }
         if (get && path === '/api/v1/admin/state') {
           const control = engine.control();
-          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
+          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').filter(o => !o.overlayId).map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
         }
         if (get && path === '/api/v1/admin/control') return send(res, engine.control());
         if (post && path === '/api/v1/admin/control') { const b = await body(req); fields(b, ['expectedControlRevision','mode','activeSessionId','aiWritesEnabled','confirmRestore']); return send(res, engine.setControl(b)); }
@@ -165,7 +176,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/locks') { const b = await body(req); fields(b, ['sessionId','path','locked','expectedRevision','reason']); return send(res, engine.locks(b)); }
         if (get && path === '/api/v1/admin/proposals') return send(res, { items: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending') });
         const proposalPreview = path.match(/^\/api\/v1\/admin\/proposals\/([A-Za-z0-9_-]+)\/preview$/);
-        if (get && proposalPreview) return send(res, engine.proposalPreview(proposalPreview[1], url.searchParams.get('screenId') ?? 'main-full'));
+        if (get && proposalPreview) return send(res, engine.proposalPreview(proposalPreview[1], url.searchParams.get('screenId') ?? 'main-full',url.searchParams.get('sceneId')??undefined));
         const proposal = path.match(/^\/api\/v1\/admin\/proposals\/([A-Za-z0-9_-]+)\/decision$/);
         if (post && proposal) { const b = await body(req); fields(b, ['decision','expectedProposalRevision','expectedRevision','acknowledgeStale','allowDisclosure']); return send(res, engine.decision(proposal[1], b)); }
         if (get && path === '/api/v1/admin/preview') return send(res, engine.preview(url.searchParams.get('screenId') ?? 'main-side'));
@@ -179,7 +190,9 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       }
       if (get && options.webDir) {
         const assets: Record<string, [string, string]> = { '/': ['admin.html','text/html'], '/admin': ['admin.html','text/html'], '/admin.js': ['admin.js','text/javascript'], '/admin.css': ['admin.css','text/css'], '/display.js': ['display.js','text/javascript'], '/display.css': ['display.css','text/css'] };
-        const asset = /^\/display\/main-(full|side|lower)$/.test(path) ? ['display.html','text/html'] : assets[path];
+        const outputPage = path.match(/^\/display\/([A-Za-z0-9_-]+)$/);
+        if (outputPage) engine.output(outputPage[1]);
+        const asset = outputPage ? ['display.html','text/html'] : assets[path];
         if (asset) { const bytes = readFileSync(`${options.webDir}/${asset[0]}`); res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); res.end(bytes); return; }
       }
       throw new DomainError('NOT_FOUND', 'Page not found.', 404);
@@ -192,5 +205,5 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       if (!res.headersSent) send(res, failure.toJSON(), failure.status); else res.end();
     } finally { const elapsed = performance.now() - began; stats.requests++; stats.lastRequestMs = elapsed; stats.totalRequestMs += elapsed; }
   });
-  return { server, clients, stats, close: async () => { clearInterval(timer); for (const c of clients) c.response.end(); server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); } };
+  return { server, clients, stats, close: async () => { clearInterval(timer); for (const c of clients) c.response.end(); server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); await renderer.close(); } };
 }

@@ -12,11 +12,11 @@ const receiptSchema=ajv.compile(JSON.parse(readFileSync('contracts/change-receip
 test('public response schemas validate all presets, hold/hidden and selected auxiliary items',()=>{
   const {store,engine:e,producer:p,session:s}=setup();
   apply(e,p,s.id,[now(),event(),{op:'set_pin',value:{text:'Notice',expiresAt:null}},{op:'upsert_work_item',workItem:{id:'work',title:'Work',status:'failed',publicResult:'Public explanation'}}]);
-  for(const id of ['main-full','main-side','main-lower']) assert.ok(publicSchema(e.output(id).snapshot),ajv.errorsText(publicSchema.errors));
+  for(const id of ['main-full','main-side','main-lower','overlay-1920x1080','overlay-1280x720']) assert.ok(publicSchema(e.output(id).snapshot),ajv.errorsText(publicSchema.errors));
   e.selectWork(s.id,{workItemId:'work',expectedRevision:e.session(s.id).revision});
   assert.equal(e.output('main-side').snapshot.content!.pin,undefined);
   assert.equal(e.output('main-side').snapshot.content!.workItem!.id,'work');
-  for(const mode of ['hold','hidden'] as const) {e.setControl({expectedControlRevision:e.control().controlRevision,mode});for(const id of ['main-full','main-side','main-lower']) assert.ok(publicSchema(e.output(id).snapshot),ajv.errorsText(publicSchema.errors));}
+  for(const mode of ['hold','hidden'] as const) {e.setControl({expectedControlRevision:e.control().controlRevision,mode});for(const id of ['main-full','main-side','main-lower','overlay-1920x1080','overlay-1280x720']) assert.ok(publicSchema(e.output(id).snapshot),ajv.errorsText(publicSchema.errors));}
   const receipt=apply(e,p,s.id,[now('Stored while hidden')]);assert.ok(receiptSchema(receipt),ajv.errorsText(receiptSchema.errors));store.close();
 });
 test('public schema refuses private fields and lower-preset content that must not be transmitted',()=>{
@@ -25,6 +25,10 @@ test('public schema refuses private fields and lower-preset content that must no
   assert.equal(publicSchema({...lower,token:'private'}),false);
   assert.equal(publicSchema({...lower,content:{...lower.content,goal:'MUST_NOT_SEND'}}),false);
   assert.equal(publicSchema({...lower,content:{...lower.content,now:{...lower.content!.now,detail:'MUST_NOT_SEND'}}}),false);store.close();
+});
+
+test('public overlay schema rejects retained hidden blocks and operator caption metadata',()=>{
+  const x=setup();try{apply(x.engine,x.producer,x.session.id,[now()]);const output=x.engine.output('overlay-1920x1080').snapshot;const caption=structuredClone(output);caption.overlay!.widgets[0].settings.message='PRIVATE_CAPTION';assert.equal(publicSchema(caption),false);const invisible=structuredClone(output);invisible.overlay!.widgets[0].visible=false;assert.equal(publicSchema(invisible),false);const hidden=structuredClone(output);hidden.mode='hidden';hidden.sessionId=null;assert.equal(publicSchema(hidden),false);}finally{x.store.close();}
 });
 test('notice clearing overrides hold; prepared session changes report not_applicable',()=>{
   const {store,engine:e,producer:p,session:s}=setup();

@@ -6,6 +6,7 @@ import type { Actor, Audit, ChangeSet, Control, Operation, Output, Proposal, Pro
 import { filterHeld, project, samePublic } from './projection.ts';
 import type { OverlayConfig, RenderPreview } from '../contracts/overlay.ts';
 import { defaultOverlayConfig, defaultLayout, overlayPair, validatedWidgets, projectOverlay } from './overlays.ts';
+import { attachInspection } from './inspection.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
 const stamp = () => new Date().toISOString();
@@ -24,7 +25,12 @@ export class Engine {
       }
       for (const auth of this.store.list<{ role: string; tokenHash: string }>('auth:')) if (auth.role === 'display') this.store.delete(`auth:${auth.tokenHash}`);
       if (!this.store.get('overlays')) this.store.put('overlays',defaultOverlayConfig());
-      for (const overlay of this.overlayConfig().overlays) if (!this.store.get(`output:${overlay.id}`)) this.store.put(`output:${overlay.id}`,{screenId:overlay.id,preset:'full',overlayId:overlay.id,snapshot:{screenId:overlay.id,preset:'full',publicRevision:0,sessionId:null,mode:this.control().mode,leaseMs,publishedAt:stamp(),content:null,overlay:projectOverlay(this.overlayConfig(),overlay.id,undefined,stamp())}});
+      for (const overlay of this.overlayConfig().overlays) if (!this.store.get(`output:${overlay.id}`)) {
+        const control=this.control(),output:Output={screenId:overlay.id,preset:'full',overlayId:overlay.id,snapshot:{screenId:overlay.id,preset:'full',publicRevision:0,sessionId:null,mode:control.mode,leaseMs,publishedAt:stamp(),content:null}};
+        output.snapshot=this.projected(control.mode==='auto'&&control.activeSessionId?this.session(control.activeSessionId):undefined,output,control);
+        if(control.mode==='hold')for(const widget of output.snapshot.overlay!.widgets)widget.blocks=[];
+        this.store.put(`output:${overlay.id}`,output);
+      }
     });
   }
   control(): Control { return this.store.get<Control>('control')!; }
@@ -59,7 +65,7 @@ export class Engine {
         const widgets=validatedWidgets(overlay,input.widgets);
         if(canonical(widgets)===canonical(layout.widgets))return config;
         layout.widgets=widgets;layout.revision++;
-      }else throw new Error('Unknown overlay action.');
+      }else ensure(false,'SCHEMA_VALIDATION','Unknown overlay action.');
       config.revision++;this.store.put('overlays',config);this.log(operator,null,null,`Overlay configuration: ${input.action}`,['/overlays'],null);return config;
     });
   }
@@ -77,7 +83,8 @@ export class Engine {
       const candidate=this.candidate(actor,prepared.change);session=candidate.after;changedPaths=candidate.paths;
     }
     const config=this.overlayConfig(),output=this.output(input.overlayId);ensure(output.overlayId,'INVALID_OVERLAY','Rendering inspection requires a full-canvas overlay.');
-    return {snapshot:this.projected(session,output,{...this.control(),mode:'auto'},config,input.sceneId??config.activeSceneId,actor),sessionRevision:revision,configRevision:config.revision,changedPaths,hypothetical:true};
+    const sceneId=input.sceneId??config.activeSceneId,hypothetical={...this.control(),mode:'auto' as const};
+    return attachInspection({snapshot:this.projected(session,output,hypothetical,config,sceneId,actor),sessionRevision:revision,configRevision:config.revision,changedPaths,hypothetical:true},this.projected(session,output,hypothetical,config,sceneId).overlay!);
   }
   session(id: string): Session { const s = this.store.get<Session>(`session:${id}`); ensure(s, 'NOT_FOUND', 'Session not found.', 404); return s; }
   output(id: string): Output { const o = this.store.get<Output>(`output:${id}`); ensure(o, 'NOT_FOUND', 'Output not found.', 404); return o; }
@@ -314,14 +321,14 @@ export class Engine {
   selectWork(id: string, input: { workItemId: string | null; expectedRevision: number }): Session {
     return this.commit(() => { const s = this.session(id), before = structuredClone(s); this.checkRevision(s, input.expectedRevision); ensure(input.workItemId === null || s.workItems.some(w => w.id === input.workItemId && !w.retractedAt), 'NOT_FOUND', 'Visible work item not found.', 404); if (s.selectedWorkId !== input.workItemId) { s.selectedWorkId = input.workItemId; s.revision++; this.store.put(`session:${id}`, s); this.log(operator, before, s, 'Displayed work selection changed', ['/selectedWorkId'], null); } return s; });
   }
-  proposalPreview(id: string, screenId = 'main-full'): ProposalPreview {
+  proposalPreview(id: string, screenId = 'main-full',sceneId=this.overlayConfig().activeSceneId): ProposalPreview {
     const p = this.store.get<Proposal>(`proposal:${id}`); ensure(p, 'NOT_FOUND', 'Proposal not found.', 404);
     ensure(p.status === 'pending', 'PROPOSAL_CONFLICT', 'Proposal is no longer pending.', 409);
     const s = this.session(p.change.sessionId), output = this.output(screenId), control = this.control();
     // Simulate the same operator candidate as approval, without receipts, writes or disclosure promotion.
     const candidate = this.candidate(operator, { ...p.change, intent: 'apply', baseRevision: s.revision });
     const now = stamp(), hypothetical = { ...control, mode: 'auto' as const };
-    return { proposalId: p.id, proposalRevision: p.revision, sessionRevision: s.revision, baseRevision: p.change.baseRevision, stale: p.change.baseRevision !== s.revision, publication: control.activeSessionId === s.id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, before: this.projected(candidate.before, output, hypothetical), after: this.projected(candidate.after, output, hypothetical) };
+    return { proposalId: p.id, proposalRevision: p.revision, sessionRevision: s.revision, baseRevision: p.change.baseRevision, stale: p.change.baseRevision !== s.revision, publication: control.activeSessionId === s.id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, before: this.projected(candidate.before, output, hypothetical,this.overlayConfig(),sceneId), after: this.projected(candidate.after, output, hypothetical,this.overlayConfig(),sceneId) };
   }
   decision(id: string, input: { decision: string; expectedProposalRevision: number; expectedRevision: number; acknowledgeStale?: boolean; allowDisclosure?: boolean }): Proposal {
     return this.commit(() => {

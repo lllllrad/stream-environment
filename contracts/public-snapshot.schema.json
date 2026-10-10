@@ -192,12 +192,10 @@
                     "maximum": 10
                   },
                   "message": {
-                    "type": "string",
-                    "maxLength": 160
+                    "const": ""
                   },
                   "detail": {
-                    "type": "string",
-                    "maxLength": 300
+                    "const": ""
                   }
                 }
               },
@@ -252,6 +250,25 @@
               "visible",
               "settings",
               "blocks"
+            ],
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "visible": {
+                      "const": false
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "blocks": {
+                      "type": "array",
+                      "maxItems": 0
+                    }
+                  }
+                }
+              }
             ]
           }
         }
@@ -592,6 +609,23 @@
           },
           "sessionId": {
             "type": "null"
+          },
+          "overlay": {
+            "type": "object",
+            "properties": {
+              "widgets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "blocks": {
+                      "type": "array",
+                      "maxItems": 0
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

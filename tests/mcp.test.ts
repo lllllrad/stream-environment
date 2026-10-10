@@ -33,7 +33,8 @@ test('MCP stdio: discover content tools, validate/propose actual display wording
   const x = await fixture(), mcp = await x.connect();
   try {
     const tools = await mcp.client.listTools();
-    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','heartbeat','propose','validate']);
+    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','get_layouts','heartbeat','propose','render_preview','validate']);
+    assert.equal(data(await mcp.call('get_layouts')).config.layouts.length,4);
     const proposedSchema = tools.tools.find(t => t.name === 'propose')!.inputSchema;
     assert.deepEqual((proposedSchema.properties as any).intent, { const: 'propose' });
     const capabilities = data(await mcp.call('get_capabilities'));

@@ -26,7 +26,7 @@ export function dashboardUrl(raw: string): string {
 class DashboardClient {
   base: string; token: string; timeoutMs: number; verifiedProducer = false;
   constructor(options: McpOptions) {
-    this.base = dashboardUrl(options.url); this.token = options.token; this.timeoutMs = options.timeoutMs ?? 10000;
+    this.base = dashboardUrl(options.url); this.token = options.token; this.timeoutMs = options.timeoutMs ?? 30000;
     ensure(typeof this.token === 'string' && this.token.length >= 24 && !/\s/.test(this.token), 'INVALID_CONFIGURATION', 'Set DASHBOARD_PRODUCER_TOKEN to a registered producer token.');
   }
   async request(path: string, command?: JsonObject): Promise<JsonObject> {
@@ -58,7 +58,9 @@ class DashboardClient {
 }
 
 function result(data: JsonObject, isError = false): CallToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data, ...(isError ? { isError: true } : {}) };
+  const {image,...structured}=data,content:CallToolResult['content']=[{type:'text',text:JSON.stringify(structured)}];
+  if(image?.mimeType==='image/png'&&typeof image.base64==='string')content.push({type:'image',mimeType:image.mimeType,data:image.base64});
+  return { content, structuredContent: structured, ...(isError ? { isError: true } : {}) };
 }
 const contextSchema = { type: 'object', additionalProperties: false, properties: { sessionId: { type: 'string', pattern: '^[A-Za-z0-9_-]+$', maxLength: 80, description: 'Omit to read the active session.' } } };
 const emptySchema = { type: 'object', additionalProperties: false, properties: {} };
@@ -74,6 +76,10 @@ export function createDashboardMcp(options: McpOptions): McpServer {
     catch (error) { return result(error instanceof DomainError || error instanceof DashboardFailure ? error.toJSON() : new DomainError('ADAPTER_ERROR', 'The adapter could not complete the request.', 503).toJSON(), true); }
   };
   server.registerTool('get_capabilities', { description: 'Read this producer’s allowed display-content fields, operations, publication grant and Unicode length limits.', inputSchema: fromJsonSchema(emptySchema), annotations: { readOnlyHint: true, openWorldHint: false } }, invoke(() => client.capabilities(), false));
+  server.registerTool('get_layouts',{description:'Read fixed overlay resolutions, scenes, complete layouts and installed widget settings. These contain operator-authored layout settings, no session text.',inputSchema:fromJsonSchema(emptySchema),annotations:{readOnlyHint:true,openWorldHint:false}},invoke(()=>client.request('/overlays')));
+  server.registerTool('render_preview',{description:'Inspect current or candidate content in an exact-size overlay without saving. Returns browser-measured visible text/code-point ranges, pixel rectangles, overlaps and truncation. Optional PNG. Scroll is measured at its first frame. Missing fields are not rendered in this layout or not granted to this producer. Read capabilities/context/layouts first.',inputSchema:fromJsonSchema<{sessionId?:string;overlayId:string;sceneId?:string;change?:ChangeSet;includeImage?:boolean}>({type:'object',additionalProperties:false,required:['overlayId'],$defs:changeSchema.$defs,properties:{sessionId:{type:'string',pattern:'^[A-Za-z0-9_-]+$'},overlayId:{type:'string',maxLength:80},sceneId:{type:'string',maxLength:80},change:changeSchema,includeImage:{type:'boolean'}}}),annotations:{readOnlyHint:true,openWorldHint:false}},async ({sessionId,...input})=>invoke(async()=>{
+    const id=sessionId??(await client.request('/sessions/current')).session?.id;ensure(id,'NO_ACTIVE_SESSION','Choose a session ID or start a session.',404);return client.request(`/sessions/${encodeURIComponent(id)}/render-preview`,input);
+  })());
   server.registerTool('get_context', { description: 'Read scope-filtered current display content, session ID/revision and protected paths. Returns session:null when no session is active. Never reads private proposals or audit data.', inputSchema: fromJsonSchema<{ sessionId?: string }>(contextSchema), annotations: { readOnlyHint: true, openWorldHint: false } }, async ({ sessionId }) => invoke(async () => {
     const id = sessionId ?? (await client.request('/sessions/current')).session?.id;
     return { session: id ? await client.request(`/sessions/${encodeURIComponent(id)}/context`) : null };
