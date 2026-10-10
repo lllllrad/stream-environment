@@ -9,6 +9,6 @@ try {
   const close = async () => { await handle.close(); };
   process.once('SIGINT', close); process.once('SIGTERM', close);
 } catch {
-  console.error('Cannot start broadcast-content MCP. Set a local DASHBOARD_URL and DASHBOARD_PRODUCER_TOKEN (a registered producer token).');
+  console.error('Cannot start broadcast MCP. Set a reachable DASHBOARD_URL. Omit DASHBOARD_PRODUCER_TOKEN for public proposals, or supply a valid registered producer token.');
   process.exitCode = 1;
 }

@@ -5,10 +5,11 @@ import type { ChangeSet } from '../contracts/types.ts';
 import { LIMITS } from '../contracts/validation.ts';
 import { layoutChangeSchema, type LayoutChange } from '../contracts/layout-proposals.ts';
 import { widgetInstanceSchema, type WidgetInstance } from '../contracts/overlay.ts';
+import { publicLayoutChangeSchema } from '../contracts/public-proposals.ts';
 
 const changeSchema = JSON.parse(readFileSync(new URL('../../contracts/change-set.schema.json', import.meta.url), 'utf8'));
 type JsonObject = Record<string, any>;
-export type McpOptions = { url: string; token: string; timeoutMs?: number };
+export type McpOptions = { url: string; token?: string; timeoutMs?: number };
 class DashboardFailure extends Error {
   body: JsonObject;
   constructor(body: JsonObject) { super(body.error?.message ?? 'Dashboard request failed.'); this.body = body; }
@@ -28,18 +29,18 @@ export function dashboardUrl(raw: string): string {
 class DashboardClient {
   base: string; token: string; timeoutMs: number; verifiedProducer = false;
   constructor(options: McpOptions) {
-    this.base = dashboardUrl(options.url); this.token = options.token; this.timeoutMs = options.timeoutMs ?? 30000;
-    ensure(typeof this.token === 'string' && this.token.length >= 24 && !/\s/.test(this.token), 'INVALID_CONFIGURATION', 'Set DASHBOARD_PRODUCER_TOKEN to a registered producer token.');
+    this.base = dashboardUrl(options.url); this.token = options.token??''; this.timeoutMs = options.timeoutMs ?? 30000;
+    ensure(this.token===''||(typeof this.token === 'string' && this.token.length >= 24 && !/\s/.test(this.token)), 'INVALID_CONFIGURATION', 'Omit DASHBOARD_PRODUCER_TOKEN for public proposals, or supply a registered producer token.');
   }
   async request(path: string, command?: JsonObject): Promise<JsonObject> {
     const body = command === undefined ? undefined : JSON.stringify(command);
-    const submission = path.endsWith('/changes')||path==='/layout-proposals';
+    const submission = path.endsWith('/changes')||path==='/layout-proposals'||['/public/proposals/content','/public/proposals/layouts'].includes(path);
     ensure(body === undefined || Buffer.byteLength(body) <= LIMITS.maxBytes, 'BODY_TOO_LARGE', 'Request exceeds 64 KiB.');
     let response: Response;
     try {
       response = await fetch(`${this.base}/api/v1${path}`, {
         method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: AbortSignal.timeout(this.timeoutMs),
-        headers: { Authorization: `Bearer ${this.token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body
+        headers: { ...(this.token?{Authorization: `Bearer ${this.token}`} : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, body
       });
     } catch { throw transportFailure(submission); }
     let data: JsonObject;
@@ -69,6 +70,16 @@ const emptySchema = { type: 'object', additionalProperties: false, properties: {
 
 export function createDashboardMcp(options: McpOptions): McpServer {
   const client = new DashboardClient(options);
+  if(!client.token){
+    const server=new McpServer({name:'broadcast-proposals',version:'1.0.0'},{maxToolInputElements:1024,instructions:'No token required. Read get_proposal_context for the current session revision, caption-free layouts and already published snapshots. Propose viewer-facing content or complete widget layouts for operator review. Omitted existing widget settings retain stored captions. Validation returns only revisions and changed paths. No apply, private context, scene activation or approval tools. Preserve identical request IDs/bodies when recovering lost receipts.'});
+    const invoke=(path:string)=>(async(command?:Record<string,any>)=>{try{return result(await client.request('/public/proposals'+path,command));}catch(error){return result(error instanceof DomainError||error instanceof DashboardFailure?error.toJSON():new DomainError('ADAPTER_ERROR','The adapter could not complete the request.',503).toJSON(),true);}});
+    server.registerTool('get_proposal_context',{description:'Discover anonymous proposal targets, current revisions, caption-free layouts and already public snapshots. No unpublished session text or private proposals.',inputSchema:fromJsonSchema(emptySchema),annotations:{readOnlyHint:true,openWorldHint:false}},async()=>invoke('/context')());
+    const publicContentSchema={...changeSchema,properties:{...changeSchema.properties,intent:{const:'propose'}}};
+    for(const [name,path,schema] of [['validate','/content/validate',publicContentSchema],['propose','/content',publicContentSchema],['validate_layout','/layouts/validate',publicLayoutChangeSchema],['propose_layout','/layouts',publicLayoutChangeSchema]] as const){
+      server.registerTool(name,{description:`${name.startsWith('validate')?'Validate privately without saving':'Save for operator review'} using the public proposal API. No token required; intent must be propose. Layout widget arrays are complete, but omitted existing settings retain stored values. Read get_proposal_context first.`,inputSchema:fromJsonSchema<JsonObject>(schema),annotations:{readOnlyHint:name.startsWith('validate'),destructiveHint:false,idempotentHint:true,openWorldHint:false}},invoke(path));
+    }
+    return server;
+  }
   const server = new McpServer({ name: 'broadcast-content', version: '1.2.0' }, {
     maxToolInputElements: 1024,
     instructions: 'Propose actual viewer-facing content: current activity, session title/goal/recap, timeline events, pinned notices and reported work. Read capabilities and context, use the shared ChangeSet contract, and preserve request IDs when recovering lost receipts. Content and layout proposals remain private until operator approval. Layout proposals require canProposeLayouts and the complete replacement widget array at the observed layout revision; use render_preview with widgets to inspect candidate geometry. Publishing requires apply_allowed policies for all affected sources, explicit producer grants and public provenance. All built-in sources default to proposal_only; read get_sources. Separate scene/widget control credentials use the HTTP Direct control API. Do not change baseRevision and blindly retry conflicts; do not claim work completion without evidence.'

@@ -111,6 +111,25 @@ test('OpenAPI widget colors accept RGB and RGBA lengths and reject incomplete va
   for(const color of ['#8B','#8BF88','#88BBFF8','#88BBFF888','#GGG8'])assert.equal(validate({...DEFAULT_SETTINGS,background:color}),false);
 });
 
+test('OpenAPI exposes and validates a complete token-free content and layout proposal flow',async()=>{
+  const x=await fixture();try{
+    const call=async(id:string,command?:object)=>{
+      const op=operation(spec,id);assert.deepEqual(op.definition.security,[]);
+      if(command)assertSchema(spec,op.definition.requestBody.content['application/json'].schema,command);
+      const response=await fetch(x.base+op.path,{method:op.method.toUpperCase(),headers:command?{'Content-Type':'application/json'}:{},body:command?JSON.stringify(command):undefined});
+      const data=await response.json();assert.equal(response.status,200,JSON.stringify(data));assertSchema(spec,op.definition.responses['200'].content['application/json'].schema,data);return data;
+    };
+    const context=await call('getPublicProposalContext');assert.equal(context.session.id,x.session.id);
+    assert.ok(!JSON.stringify(context).includes(x.issued.token));assert.ok(!JSON.stringify(context).includes('PRIVATE_METADATA_PRODUCER'));
+    const content={schemaVersion:'1.0',requestId:randomUUID(),sessionId:context.session.id,baseRevision:context.session.revision,intent:'propose',provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'OpenAPI public proposal'},operations:[{op:'set_now',value:{title:'Token-free OpenAPI',detail:'Awaiting review',status:'preparing',next:null}}]};
+    await call('validatePublicContent',content);const receipt=await call('proposePublicContent',content);assert.equal(receipt.outcome,'proposed');assert.deepEqual(await call('proposePublicContent',content),receipt);
+    const layout=context.config.layouts[0];layout.widgets[0].zIndex=4;
+    const candidate={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:content.provenance,widgets:layout.widgets};
+    await call('validatePublicLayout',candidate);assert.equal((await call('proposePublicLayout',candidate)).outcome,'proposed');
+    assert.equal(x.engine.session(x.session.id).now,null);assert.notEqual(x.engine.overlayConfig().layouts[0].widgets[0].zIndex,4);
+  }finally{await x.close();}
+});
+
 test('OpenAPI source policies and separate controller operations validate live scoped requests and responses',async()=>{
   const x=await fixture();try{
     const call=async(path:string,method:'get'|'post',token:string,body?:object,status=200)=>{

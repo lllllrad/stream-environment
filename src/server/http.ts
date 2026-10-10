@@ -107,6 +107,13 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       }
       if (get && path === '/health/live') return send(res, { ok: true });
       if (get && path === '/health/ready') { engine.store.db.prepare('SELECT 1').get(); return send(res, { ok: true }); }
+      if(path.startsWith('/api/v1/public/proposals/')){
+        consume('anonymous');
+        if(get&&path==='/api/v1/public/proposals/context')return send(res,engine.publicProposalContext());
+        if(post&&['/api/v1/public/proposals/content','/api/v1/public/proposals/content/validate'].includes(path))return send(res,engine.publicContentProposal(await body(req),path.endsWith('/validate')));
+        if(post&&['/api/v1/public/proposals/layouts','/api/v1/public/proposals/layouts/validate'].includes(path))return send(res,engine.publicLayoutProposal(await body(req),path.endsWith('/validate')));
+        throw new DomainError('NOT_FOUND','Public proposal endpoint not found.',404);
+      }
       if (post && path === '/api/v1/admin/login') {
         const b = await body(req); fields(b, ['token']); ensure(typeof b.token === 'string' && equal(tokenHash(b.token), adminDigest), 'UNAUTHORIZED', 'Invalid operator credential.', 401);
         const raw = key(), csrf = key(), digest = tokenHash(raw);

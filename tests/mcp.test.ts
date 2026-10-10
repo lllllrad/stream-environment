@@ -33,6 +33,19 @@ async function fixture(canAutoPublish = false, host = '127.0.0.1') {
 }
 const data = (result: CallToolResult) => result.structuredContent as any;
 
+test('token-free MCP discovers public context, validates and proposes content/layouts without publishing or exposing privileged tools',async()=>{
+  const x=await fixture(),mcp=await x.connect('');try{
+    const tools=(await mcp.client.listTools()).tools.map(t=>t.name).sort();assert.deepEqual(tools,['get_proposal_context','propose','propose_layout','validate','validate_layout']);
+    const context=data(await mcp.call('get_proposal_context'));assert.equal(context.session.id,x.session.id);
+    const command={...change(x.engine.session(x.session.id),[now('Token-free MCP suggestion')]),intent:'propose'};
+    assert.ok(!(await mcp.call('validate',command)).isError);const receipt=data(await mcp.call('propose',command));assert.equal(receipt.outcome,'proposed');assert.deepEqual(data(await mcp.call('propose',command)),receipt);
+    const layout=context.config.layouts[0];layout.widgets[0].zIndex=8;
+    const candidate={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'Token-free MCP layout'},widgets:layout.widgets};
+    assert.ok(!(await mcp.call('validate_layout',candidate)).isError);assert.equal(data(await mcp.call('propose_layout',candidate)).outcome,'proposed');
+    assert.equal(x.engine.session(x.session.id).now,null);assert.notEqual(x.engine.overlayConfig().layouts[0].widgets[0].zIndex,8);
+  }finally{await mcp.client.close();await x.close();}
+});
+
 test('MCP discovers source policies and cannot apply or inspect apply candidates for proposal-only sources',async()=>{
   const x=await fixture(true),mcp=await x.connect();try{
     x.engine.setSourcePolicy({expectedControlRevision:x.engine.control().controlRevision,sourceId:'now',policy:'proposal_only'});
@@ -134,12 +147,13 @@ test('MCP stdio: operator credentials cannot expose private context, no active s
   } finally { await operatorClient.client.close(); await producerClient.client.close(); await x.close(); }
 });
 
-test('MCP adapter accepts configured network HTTP/HTTPS origins and requires a token', () => {
+test('MCP adapter accepts configured network HTTP/HTTPS origins and optional valid producer tokens', () => {
   assert.equal(dashboardUrl('http://localhost:4310/'), 'http://localhost:4310');
   assert.equal(dashboardUrl('http://192.168.1.20:4310/'), 'http://192.168.1.20:4310');
   assert.equal(dashboardUrl('https://stream-pc.example/'), 'https://stream-pc.example');
   for (const url of ['file:///dashboard', 'ftp://stream-pc', 'http://0.0.0.0:4310', 'http://[::]:4310', 'http://127.0.0.1:4310/path', 'http://secret@localhost:4310', 'http://localhost:4310?token=secret', 'http://localhost:4310#secret', 'invalid']) assert.throws(() => dashboardUrl(url));
-  assert.throws(() => createDashboardMcp({ url: 'http://127.0.0.1:4310', token: '' }));
+  assert.ok(createDashboardMcp({ url: 'http://127.0.0.1:4310', token: '' }));
+  assert.throws(()=>createDashboardMcp({url:'http://127.0.0.1:4310',token:'invalid'}));
 });
 
 test('MCP stdio: a configured network address can read context and propose display content', async () => {

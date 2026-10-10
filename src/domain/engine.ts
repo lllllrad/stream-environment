@@ -12,7 +12,8 @@ import { parseLayoutChange, layoutChangedPaths } from './layout-proposals.ts';
 import { CONTENT_SOURCES, sourcesForPath } from '../sources/registry.ts';
 import { publicationPolicies, type PublicationPolicy, type EffectiveSource } from '../contracts/source-policy.ts';
 import { parseDirectCommand, type Controller, type WidgetTarget, type DirectContext, type DirectReceipt } from '../contracts/direct-control.ts';
-import { widgetPlugin } from '../widgets/registry.ts';
+import { widgetPlugin, widgetCatalog } from '../widgets/registry.ts';
+import { mergePublicWidgets, parsePublicLayoutChange, type PublicProposalContext } from '../contracts/public-proposals.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
 const stamp = () => new Date().toISOString();
@@ -41,6 +42,54 @@ export class Engine {
   }
   control(): Control { return this.store.get<Control>('control')!; }
   overlayConfig():OverlayConfig { return this.store.get<OverlayConfig>('overlays')!; }
+  publicProposalContext():PublicProposalContext{
+    const control=this.control(),session=control.activeSessionId?this.session(control.activeSessionId):null,config=this.overlayConfig();
+    return {session:session&&session.status!=='ended'?{id:session.id,status:session.status,revision:session.revision}:null,aiWritesEnabled:control.aiWritesEnabled,limits:LIMITS,sources:this.contentSources(),plugins:widgetCatalog(),config:{...config,layouts:config.layouts.map(layout=>({...layout,widgets:layout.widgets.map(widget=>{const {message,detail,...settings}=widget.settings;return {...widget,settings};})}))},outputs:this.store.list<Output>('output:').map(output=>output.snapshot)};
+  }
+  private checkPublicProposals():void{ensure(this.control().aiWritesEnabled,'AI_WRITES_DISABLED','AI proposals are paused by the operator.',403);}
+  private publicQueueLimit(prefix:string):void{
+    const pending=this.store.list<{status:string;actorId:string}>(prefix).filter(p=>p.status==='pending');
+    ensure(pending.length<128&&pending.filter(p=>p.actorId==='anonymous').length<32,'PROPOSAL_LIMIT','Pending anonymous proposal limit reached.',429);
+  }
+  publicContentProposal(raw:unknown,validateOnly=false):unknown{
+    const run=()=>{
+      this.checkPublicProposals();const change=parseChange(raw);
+      ensure(change.intent==='propose','PROPOSAL_ONLY','The public API accepts reviewed proposals only.',403);
+      const control=this.control(),session=this.session(change.sessionId);
+      ensure(control.activeSessionId===session.id&&['active','paused'].includes(session.status),'INACTIVE_SESSION','Public content proposals must target the current session.',409);
+      const digest=hash(change),saved=this.store.receipt('anonymous',session.id,change.requestId);
+      if(saved){ensure(saved.hash===digest,'IDEMPOTENCY_CONFLICT','This request ID was used for another public proposal.',409);return validateOnly?{ok:true,receipt:saved.response,replay:true}:saved.response;}
+      // Simulate the eventual human decision privately; no candidate content is exposed.
+      const candidate=this.candidate(operator,change);
+      if(validateOnly)return {ok:true,changedPaths:candidate.paths,sessionRevision:session.revision};
+      this.publicQueueLimit('proposal:');
+      const proposal:Proposal={id:`proposal_${randomUUID()}`,revision:0,status:'pending',actorId:'anonymous',createdAt:stamp(),reviewedAt:null,change};
+      this.store.put(`proposal:${proposal.id}`,proposal);
+      const receipt:Receipt={ok:true,requestId:change.requestId,outcome:'proposed',sessionId:session.id,appliedRevision:session.revision,publication:'not_applicable',changedPaths:candidate.paths,proposalId:proposal.id,warnings:['Anonymous suggestion saved for operator review; not published.']};
+      this.store.saveReceipt('anonymous',session.id,change.requestId,digest,receipt);
+      this.log({id:'anonymous'},null,null,`Anonymous content proposed: ${change.provenance.reason}`,candidate.paths,change.requestId,'not_applicable');return receipt;
+    };
+    return validateOnly?run():this.store.transaction(run);
+  }
+  publicLayoutProposal(raw:unknown,validateOnly=false):unknown{
+    const run=()=>{
+      this.checkPublicProposals();const submitted=parsePublicLayoutChange(raw),digest=hash(submitted),key=`layout-receipt:anonymous:${submitted.requestId}`;
+      const saved=this.store.get<{digest:string;receipt:LayoutProposalReceipt}>(key);
+      if(saved){ensure(saved.digest===digest,'IDEMPOTENCY_CONFLICT','This request ID was used for another public layout proposal.',409);return validateOnly?{ok:true,receipt:saved.receipt,replay:true}:saved.receipt;}
+      const config=this.overlayConfig(),{overlay,layout}=overlayPair(config,submitted.overlayId,submitted.sceneId);
+      const change=parseLayoutChange({...submitted,widgets:mergePublicWidgets(submitted.widgets,layout.widgets)});
+      ensure(layout.revision===change.baseRevision,'LAYOUT_REVISION_CONFLICT','Layout changed. Read public proposal context again.',409,[],layout.revision);
+      change.widgets=validatedWidgets(overlay,change.widgets);
+      const paths=layoutChangedPaths(change.overlayId,change.sceneId,layout.widgets,change.widgets);ensure(paths.length,'NO_LAYOUT_CHANGE','The proposed layout is unchanged.');
+      if(validateOnly)return {ok:true,changedPaths:paths,configRevision:config.revision,layoutRevision:layout.revision};
+      this.publicQueueLimit('layout-proposal:');
+      const proposal:LayoutProposal={id:`layout_proposal_${randomUUID()}`,revision:0,status:'pending',actorId:'anonymous',createdAt:stamp(),reviewedAt:null,change,baseWidgets:layout.widgets};
+      this.store.put(`layout-proposal:${proposal.id}`,proposal);
+      const receipt:LayoutProposalReceipt={ok:true,requestId:change.requestId,outcome:'proposed',proposalId:proposal.id,overlayId:change.overlayId,sceneId:change.sceneId,layoutRevision:layout.revision,publication:'not_applicable'};
+      this.store.put(key,{digest,receipt});this.log({id:'anonymous'},null,null,`Anonymous layout proposed: ${change.provenance.reason}`,paths,change.requestId,'not_applicable');return receipt;
+    };
+    return validateOnly?run():this.store.transaction(run);
+  }
   contentSources():EffectiveSource[]{
     const overrides=this.store.get<Record<string,PublicationPolicy>>('source-policies')??{};
     return CONTENT_SOURCES.map(source=>({...source,policy:overrides[source.id]??source.defaultPolicy}));
@@ -148,7 +197,7 @@ export class Engine {
       ensure(['approve','reject'].includes(input.decision),'SCHEMA_VALIDATION','Invalid review decision.');
       ensure([input.acknowledgeStale,input.allowDisclosure].every(v=>v===undefined||typeof v==='boolean'),'SCHEMA_VALIDATION','Review acknowledgments must be boolean.');
       if(input.decision==='approve'){
-        this.layoutAuthor(p.actorId===operator.id?operator:this.actor(p.actorId));
+        if(p.actorId!=='anonymous')this.layoutAuthor(p.actorId===operator.id?operator:this.actor(p.actorId));
         const config=this.overlayConfig(),{overlay,layout}=overlayPair(config,p.change.overlayId,p.change.sceneId);
         ensure(config.revision===input.expectedConfigRevision,'OVERLAY_REVISION_CONFLICT','Overlay configuration changed since review. Refresh the preview.',409);
         ensure(layout.revision===input.expectedLayoutRevision,'LAYOUT_REVISION_CONFLICT','Layout changed since review. Refresh the preview.',409,[],layout.revision);

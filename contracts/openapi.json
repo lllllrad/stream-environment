@@ -13,6 +13,10 @@
   ],
   "tags": [
     {
+      "name": "Public proposals",
+      "description": "Token-free content and layout suggestions. Always private until operator approval; no immediate changes or privileged reads."
+    },
+    {
       "name": "Discovery",
       "description": "Public API metadata without private state."
     },
@@ -38,6 +42,511 @@
     }
   ],
   "paths": {
+    "/api/v1/public/proposals/context": {
+      "get": {
+        "operationId": "getPublicProposalContext",
+        "tags": [
+          "Public proposals"
+        ],
+        "summary": "Discover token-free proposal targets and published output",
+        "description": "No token required. Current session ID/status/revision, caption-free current layouts, installed plugin/source metadata and already public snapshots. No unpublished session text, private captions, provenance, audit or other proposals. Anonymous requests share the configured credential quota.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProposalContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/proposals/content/validate": {
+      "post": {
+        "operationId": "validatePublicContent",
+        "tags": [
+          "Public proposals"
+        ],
+        "summary": "Validate an anonymous content suggestion without saving",
+        "description": "No authentication. Only intent:propose targeting the active/paused current session. Normal schema/revision/observation rules; no before/after private content is returned. No mutation or publication. AI write gate applies.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProposalValidation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicContentChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/proposals/content": {
+      "post": {
+        "operationId": "proposePublicContent",
+        "tags": [
+          "Public proposals"
+        ],
+        "summary": "Submit a content proposal without a token",
+        "description": "Only intent:propose. Saves a private anonymous review item and receipt; never applies directly or grants read/control access. Operator approval remains mandatory even for apply_allowed sources. Exact request ID/body retries recover receipts. 32 pending anonymous content items, 128 total content items for accepting public submissions; 64 KiB and normal quotas.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicContentChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/proposals/layouts/validate": {
+      "post": {
+        "operationId": "validatePublicLayout",
+        "tags": [
+          "Public proposals"
+        ],
+        "summary": "Validate a token-free layout suggestion without exposing private captions",
+        "description": "Complete widget array with partial settings. Omitted existing setting keys retain stored values; new widgets use defaults. Returns only revisions and changed paths, never merged caption values. Layout bounds, plugins, settings and per-layout revision are validated. AI write gate applies.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProposalValidation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLayoutChange"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/proposals/layouts": {
+      "post": {
+        "operationId": "proposePublicLayout",
+        "tags": [
+          "Public proposals"
+        ],
+        "summary": "Submit a layout proposal without a token",
+        "description": "No producer registration or layout grant needed on this public proposal route. Always requires operator review, including stale replacement/disclosure checks. Omitted existing captions are preserved privately; omitted widget IDs propose removal. No layout/scene/output changes. Exact request ID/body retries recover receipts across restarts. 32 pending anonymous layout items, 128 global layout items.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutProposalReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicLayoutChange"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sources": {
       "get": {
         "operationId": "getSources",
@@ -11342,6 +11851,899 @@
           "changedPaths",
           "hypothetical",
           "report"
+        ]
+      },
+      "PublicContentChange": {
+        "title": "ChangeSet",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": "1.0"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "baseRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "intent": {
+            "const": "propose"
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "public",
+                  "unknown",
+                  "restricted"
+                ]
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "sourceRefs": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9:_-]+$"
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "disclosure",
+              "observedAt",
+              "sourceRefs",
+              "reason"
+            ]
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "update_session"
+                    },
+                    "fields": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "goal": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "recap": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        }
+                      },
+                      "required": [],
+                      "minProperties": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "fields"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "set_now"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/PublicContentChange/$defs/now"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "set_pin"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/PublicContentChange/$defs/pin"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "upsert_event"
+                    },
+                    "event": {
+                      "$ref": "#/components/schemas/PublicContentChange/$defs/event"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "event"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "retract_event"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "upsert_work_item"
+                    },
+                    "workItem": {
+                      "$ref": "#/components/schemas/PublicContentChange/$defs/work"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "workItem"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "retract_work_item"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "sessionId",
+          "baseRevision",
+          "intent",
+          "provenance",
+          "operations"
+        ],
+        "$defs": {
+          "now": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "status": {
+                "enum": [
+                  "preparing",
+                  "in_progress",
+                  "blocked",
+                  "paused",
+                  "complete"
+                ]
+              },
+              "next": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "detail",
+              "status",
+              "next"
+            ]
+          },
+          "event": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "kind": {
+                "enum": [
+                  "topic",
+                  "progress",
+                  "decision",
+                  "result",
+                  "correction"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "certainty": {
+                "enum": [
+                  "confirmed",
+                  "tentative"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "text",
+              "occurredAt",
+              "certainty"
+            ]
+          },
+          "work": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "status": {
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "publicResult": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "status",
+              "publicResult"
+            ]
+          },
+          "pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "expiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "text",
+              "expiresAt"
+            ]
+          }
+        }
+      },
+      "PublicLayoutChange": {
+        "title": "PublicLayoutChange",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "intent",
+          "overlayId",
+          "sceneId",
+          "baseRevision",
+          "provenance",
+          "widgets"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "const": "1.0"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "intent": {
+            "const": "propose"
+          },
+          "overlayId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "sceneId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "baseRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Revision of this overlay/scene layout, not the global configuration revision."
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "disclosure",
+              "observedAt",
+              "sourceRefs",
+              "reason"
+            ],
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "public",
+                  "unknown",
+                  "restricted"
+                ]
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "sourceRefs": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9:_-]+$"
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          },
+          "widgets": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "type",
+                "x",
+                "y",
+                "width",
+                "height",
+                "visible"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                },
+                "type": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_-]{0,59}$"
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 48,
+                  "maximum": 3840
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 32,
+                  "maximum": 2160
+                },
+                "zIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "default": 0,
+                  "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+                },
+                "visible": {
+                  "type": "boolean"
+                },
+                "settings": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [],
+                  "properties": {
+                    "fontSize": {
+                      "type": "integer",
+                      "minimum": 12,
+                      "maximum": 80
+                    },
+                    "minFontSize": {
+                      "type": "integer",
+                      "minimum": 12,
+                      "maximum": 80
+                    },
+                    "padding": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 64
+                    },
+                    "maxLines": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 20
+                    },
+                    "overflow": {
+                      "enum": [
+                        "clip",
+                        "ellipsis",
+                        "shrink",
+                        "scroll"
+                      ]
+                    },
+                    "background": {
+                      "type": "string",
+                      "pattern": "^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$",
+                      "description": "Hex RGB/RGBA colors in 3, 4, 6 or 8 digits, or transparent. Alpha is the final digit or pair; shorthand is expanded when saved."
+                    },
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+                      "description": "Hex RGB/RGBA text color in 3, 4, 6 or 8 digits. Alpha is the final digit or pair; shorthand is expanded when saved."
+                    },
+                    "showDetails": {
+                      "type": "boolean"
+                    },
+                    "maxItems": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 10
+                    },
+                    "message": {
+                      "type": "string",
+                      "maxLength": 160
+                    },
+                    "detail": {
+                      "type": "string",
+                      "maxLength": 300
+                    }
+                  },
+                  "description": "Partial settings. Omitted keys on an existing widget retain their stored values, including private captions. New instances use normal defaults."
+                }
+              }
+            },
+            "description": "Complete widget array for operator review. Omitted existing settings are retained; geometry/order/visibility are explicit. Omitted instances are proposed for removal."
+          }
+        }
+      },
+      "PublicProposalContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "status": {
+                    "enum": [
+                      "prepared",
+                      "active",
+                      "paused",
+                      "ended"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "revision"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aiWritesEnabled": {
+            "type": "boolean"
+          },
+          "limits": {
+            "type": "object"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentSource"
+            }
+          },
+          "plugins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WidgetPlugin"
+            }
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "activeSceneId": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "overlays": {
+                "type": "array",
+                "maxItems": 8,
+                "items": {
+                  "$ref": "#/components/schemas/Overlay"
+                }
+              },
+              "scenes": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "$ref": "#/components/schemas/Scene"
+                }
+              },
+              "layouts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "overlayId": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "sceneId": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "widgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "type",
+                          "x",
+                          "y",
+                          "width",
+                          "height",
+                          "visible"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                          },
+                          "type": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,59}$"
+                          },
+                          "x": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "y": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "width": {
+                            "type": "integer",
+                            "minimum": 48,
+                            "maximum": 3840
+                          },
+                          "height": {
+                            "type": "integer",
+                            "minimum": 32,
+                            "maximum": 2160
+                          },
+                          "zIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000,
+                            "default": 0,
+                            "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+                          },
+                          "visible": {
+                            "type": "boolean"
+                          },
+                          "settings": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [],
+                            "properties": {
+                              "fontSize": {
+                                "type": "integer",
+                                "minimum": 12,
+                                "maximum": 80
+                              },
+                              "minFontSize": {
+                                "type": "integer",
+                                "minimum": 12,
+                                "maximum": 80
+                              },
+                              "padding": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 64
+                              },
+                              "maxLines": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 20
+                              },
+                              "overflow": {
+                                "enum": [
+                                  "clip",
+                                  "ellipsis",
+                                  "shrink",
+                                  "scroll"
+                                ]
+                              },
+                              "background": {
+                                "type": "string",
+                                "pattern": "^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$",
+                                "description": "Hex RGB/RGBA colors in 3, 4, 6 or 8 digits, or transparent. Alpha is the final digit or pair; shorthand is expanded when saved."
+                              },
+                              "color": {
+                                "type": "string",
+                                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+                                "description": "Hex RGB/RGBA text color in 3, 4, 6 or 8 digits. Alpha is the final digit or pair; shorthand is expanded when saved."
+                              },
+                              "showDetails": {
+                                "type": "boolean"
+                              },
+                              "maxItems": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10
+                              }
+                            },
+                            "description": "Partial settings. Omitted keys on an existing widget retain their stored values, including private captions. New instances use normal defaults."
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "overlayId",
+                    "sceneId",
+                    "revision",
+                    "widgets"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "revision",
+              "activeSceneId",
+              "overlays",
+              "scenes",
+              "layouts"
+            ]
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicSnapshot"
+            }
+          }
+        },
+        "required": [
+          "session",
+          "aiWritesEnabled",
+          "limits",
+          "sources",
+          "plugins",
+          "config",
+          "outputs"
+        ]
+      },
+      "PublicProposalValidation": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "changedPaths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 320
+                }
+              },
+              "sessionRevision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "configRevision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "layoutRevision": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "ok",
+              "changedPaths"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ok": {
+                "const": true
+              },
+              "replay": {
+                "const": true
+              },
+              "receipt": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ChangeReceipt"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LayoutProposalReceipt"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "ok",
+              "replay",
+              "receipt"
+            ]
+          }
         ]
       }
     }
