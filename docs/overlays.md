@@ -27,7 +27,11 @@ The Away widget displays an operator-authored message and optional detail indepe
 
 ## Widget presentation and overflow
 
-Presentation settings belong to each widget instance. Plugins declare the extra settings they use, such as detail visibility, list length or Away text. The shared text renderer supports:
+Presentation settings belong to each widget instance. Plugins declare the extra settings they use, such as detail visibility, list length or Away text.
+
+Background and text colors can be selected with a color picker or entered as `#RGB` / `#RRGGBB`. The editor expands shorthand before preview and saving (`#bf8` becomes `#bbff88`); HTTP widget settings continue using six-digit hex. Background also accepts `transparent`, with a dedicated transparent-background button. Incomplete or invalid color entries keep the last valid preview and disable layout review/save until corrected, without sending invalid preview requests.
+
+The shared text renderer supports:
 
 | Behavior | Rendering |
 | --- | --- |

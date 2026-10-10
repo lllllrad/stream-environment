@@ -61,6 +61,42 @@ test('operator starts in the overlay editor and compact navigation retains an ac
   await editor.click(); await expect(page.getByLabel('편집 씬')).toBeVisible();
 });
 
+test('widget colors accept shorthand, avoid invalid preview requests, persist and support transparency',async({page,request})=>{
+  await seed(request,'normal'); const {config}=await api(request,'/admin/overlays');
+  const original=config.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets;
+  await login(page,false); const widget=page.locator('.overlay-editor-stage [data-widget="now"]');
+  await expect(widget).toBeVisible();
+  const rejected:number[]=[],invalidRequests:unknown[]=[];
+  page.on('response',response=>{if(response.url().endsWith('/admin/layouts/preview')&&!response.ok())rejected.push(response.status());});
+  page.on('request',request=>{if(request.url().endsWith('/admin/layouts/preview')){const input=request.postDataJSON();if(input.widgets?.some((widget:any)=>widget.settings.background==='#bf'))invalidRequests.push(input);}});
+  const display=await page.context().newPage(); await display.goto('/display/overlay-1920x1080');
+  try {
+    const background=page.getByLabel('배경색',{exact:true});
+    await background.fill('#bf'); await expect(background).toHaveAttribute('aria-invalid','true');
+    await expect(page.getByRole('button',{name:'저장 전 검토',exact:true})).toBeDisabled();
+    // Cover both the debounce and periodic refresh while an entry is incomplete.
+    await page.waitForTimeout(2300); expect(rejected).toEqual([]); expect(invalidRequests).toEqual([]);
+    await background.pressSequentially('8'); await expect(widget).toHaveCSS('background-color','rgb(187, 255, 136)');
+    await page.getByLabel('글자색',{exact:true}).fill('#AbC'); await expect(background).toHaveValue('#bf8');
+    await expect(widget).toHaveCSS('color','rgb(170, 187, 204)');
+    await page.getByLabel('글자색 선택',{exact:true}).fill('#204060'); await expect(widget).toHaveCSS('color','rgb(32, 64, 96)');
+    const save=async()=>{await expect(page.getByRole('button',{name:'저장 전 검토',exact:true})).toBeEnabled();await page.getByRole('button',{name:'저장 전 검토',exact:true}).click();await page.getByRole('button',{name:'검토한 레이아웃 저장',exact:true}).click();await expect(page.getByText('레이아웃을 저장했습니다.',{exact:true})).toBeVisible();};
+    await background.focus(); await save(); await expect(display.locator('[data-widget="now"]')).toHaveCSS('background-color','rgb(187, 255, 136)');
+    let {config:saved}=await api(request,'/admin/overlays'); let settings=saved.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets.find((widget:any)=>widget.id==='now').settings;
+    expect(settings.background).toBe('#bbff88'); expect(settings.color).toBe('#204060');
+    await page.reload(); await expect(background).toHaveValue('#bbff88');
+    await expect(widget).toHaveCSS('background-color','rgb(187, 255, 136)');
+    await expect(widget).toHaveCSS('color','rgb(32, 64, 96)');
+    await page.screenshot({path:'artifacts/widget-colors.png',fullPage:true});
+    await page.getByRole('button',{name:'배경 투명하게',exact:true}).click(); await expect(widget).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+    await save(); await expect(display.locator('[data-widget="now"]')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+    expect(rejected).toEqual([]); expect(invalidRequests).toEqual([]);
+  } finally {
+    await display.close(); const {config:latest}=await api(request,'/admin/overlays');
+    await api(request,'/admin/layouts',{overlayId:'overlay-1920x1080',sceneId:'live',widgets:original,expectedRevision:latest.revision});
+  }
+});
+
 test('overlay editor drags, resizes, reviews and persists widget geometry and adds complete scene layouts',async({page,request})=>{
   const fixture=await seed(request,'normal');await login(page);await page.getByRole('button',{name:'오버레이 편집',exact:true}).click();
   const handle=page.getByRole('button',{name:'위젯 now',exact:true});await expect(handle).toBeVisible();const box=(await handle.boundingBox())!,initialX=Number(await page.getByLabel('위젯 x',{exact:true}).inputValue());
