@@ -8,6 +8,8 @@ Run `just build` after installing dependencies, then `just start` or `just run`.
 
 Select **Public proposals** to read proposal context and submit content or layout suggestions without Authorize. All suggestions stay private until operator approval. See [token-free examples](public-proposals.md). Protected operations use the separate authentication steps below.
 
+Source discovery also requires no authentication: expand `getSources` under **Discovery** to call `GET /api/v1/sources`. It returns source metadata and publication policies, without private content. Changing those policies still requires operator authentication.
+
 ## Authorize and execute
 
 1. Open **Authorize** and enter the raw token, without the `Bearer` prefix.

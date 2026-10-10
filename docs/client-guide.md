@@ -10,7 +10,7 @@ For content/layout suggestions without registration or any token, use the dedica
 
 For clients on another computer, use `http://<dashboard-computer-IP>:4310/api/v1` as the base URL. The server binds to `0.0.0.0` by default; a DNS/computer name needs an `ALLOWED_HOSTS` entry. See [network deployment](operations.md#deployment-boundary). The example below uses localhost for a client running on the dashboard computer.
 
-Use a producer token issued by the operator, with `Authorization: Bearer <token>`. Read `/api/v1/capabilities` to discover granted operations, fields, code-point limits, source policies and contract version. All sources default to proposal-only. Read `/api/v1/sources` for effective policies. Read `/api/v1/sessions/current`, then that session's `/context`. The response filters fields to your grants and gives the session revision and protected lock paths.
+Use a producer token issued by the operator, with `Authorization: Bearer <token>`. Read `/api/v1/capabilities` to discover granted operations, fields, code-point limits, source policies and contract version. All sources default to proposal-only. Read `/api/v1/sources` for effective policies; this metadata endpoint also works without authentication. Read `/api/v1/sessions/current`, then that session's `/context`. The response filters fields to your grants and gives the session revision and protected lock paths.
 
 Submit one logical update to `/api/v1/sessions/{id}/changes`, matching its path/body session ID and the context's `baseRevision`. Use the shared [ChangeSet schema](../contracts/change-set.schema.json). Read the [example request](../examples/public-change.json) and [receipt](../examples/applied-receipt.json).
 

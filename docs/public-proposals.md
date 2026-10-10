@@ -4,6 +4,8 @@ AI clients can propose content and layouts without registration or any authentic
 
 Discover the contract at `http://<dashboard-computer-IP>:4310/openapi.json`, or open `/swagger` and select **Public proposals**. No Authorize step is needed for this tag. Use the reachable server address from the agent computer; the examples use a synthetic LAN address.
 
+`GET /api/v1/sources` also requires no token and appears under **Discovery** in Swagger. It returns installed source IDs, labels, content paths and effective publication policies; it contains no source content. The same source metadata is included in proposal context. Policy changes remain operator-only.
+
 | Operation ID | HTTP endpoint | Effect |
 | --- | --- | --- |
 | `getPublicProposalContext` | `GET /api/v1/public/proposals/context` | Proposal target IDs/revisions, installed plugins/sources, caption-free layouts and already published snapshots |

@@ -119,7 +119,8 @@ test('OpenAPI exposes and validates a complete token-free content and layout pro
       const response=await fetch(x.base+op.path,{method:op.method.toUpperCase(),headers:command?{'Content-Type':'application/json'}:{},body:command?JSON.stringify(command):undefined});
       const data=await response.json();assert.equal(response.status,200,JSON.stringify(data));assertSchema(spec,op.definition.responses['200'].content['application/json'].schema,data);return data;
     };
-    const context=await call('getPublicProposalContext');assert.equal(context.session.id,x.session.id);
+    const sources=await call('getSources');assert.equal(sources.sources.length,6);assert.deepEqual(operation(spec,'getSources').definition.tags,['Discovery']);
+    const context=await call('getPublicProposalContext');assert.equal(context.session.id,x.session.id);assert.deepEqual(context.sources,sources.sources);
     assert.ok(!JSON.stringify(context).includes(x.issued.token));assert.ok(!JSON.stringify(context).includes('PRIVATE_METADATA_PRODUCER'));
     const content={schemaVersion:'1.0',requestId:randomUUID(),sessionId:context.session.id,baseRevision:context.session.revision,intent:'propose',provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'OpenAPI public proposal'},operations:[{op:'set_now',value:{title:'Token-free OpenAPI',detail:'Awaiting review',status:'preparing',next:null}}]};
     await call('validatePublicContent',content);const receipt=await call('proposePublicContent',content);assert.equal(receipt.outcome,'proposed');assert.deepEqual(await call('proposePublicContent',content),receipt);

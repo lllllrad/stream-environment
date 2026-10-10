@@ -551,18 +551,11 @@
       "get": {
         "operationId": "getSources",
         "tags": [
-          "Producer"
+          "Discovery"
         ],
-        "summary": "Discover effective content-source publication policies",
-        "description": "Trusted sources default to proposal_only. Producers need both apply_allowed source policy and automatic publication grants to apply. Policies cover underlying content paths across all widgets, hidden layouts and legacy outputs.",
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "operatorCookie": []
-          }
-        ],
+        "summary": "Discover effective content-source publication policies without a token",
+        "description": "Public read-only metadata; no registration or token required. Returns installed source IDs, labels, content paths and default/effective publication policies, never source content or credentials. Shares the anonymous proposal request quota. Trusted sources default to proposal_only. Producers need both apply_allowed source policy and automatic publication grants to apply. Policies cover underlying content paths across all widgets, hidden layouts and legacy outputs.",
+        "security": [],
         "responses": {
           "200": {
             "description": "Success",

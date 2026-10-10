@@ -107,6 +107,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       }
       if (get && path === '/health/live') return send(res, { ok: true });
       if (get && path === '/health/ready') { engine.store.db.prepare('SELECT 1').get(); return send(res, { ok: true }); }
+      if(get&&path==='/api/v1/sources'){consume('anonymous');return send(res,{sources:engine.contentSources()});}
       if(path.startsWith('/api/v1/public/proposals/')){
         consume('anonymous');
         if(get&&path==='/api/v1/public/proposals/context')return send(res,engine.publicProposalContext());
@@ -150,7 +151,6 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (isAdmin) ensure(auth.actor.role === 'operator', 'FORBIDDEN', 'Operator permission is required.', 403);
         if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, canProposeLayouts:auth.actor.role==='operator'||auth.actor.canProposeLayouts===true, sourcePolicies:engine.contentSources(), limits: LIMITS, leaseMs: engine.leaseMs });
         if (get && (path === '/api/v1/overlays' || path === '/api/v1/admin/overlays')) return send(res,{config:engine.overlayConfig(),plugins:widgetCatalog(),sources:engine.contentSources()});
-        if(get&&path==='/api/v1/sources')return send(res,{sources:engine.contentSources()});
         if(post&&path==='/api/v1/admin/source-policies'){const b=await body(req);fields(b,['expectedControlRevision','sourceId','policy']);return send(res,{sources:engine.setSourcePolicy(b)});}
         if(get&&path==='/api/v1/admin/controllers')return send(res,{items:engine.controllers()});
         if(post&&path==='/api/v1/admin/controllers'){const b=await body(req);fields(b,['expectedControlRevision','name','allowedSceneIds','widgets']);return send(res,engine.registerController(b),201);}

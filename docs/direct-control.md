@@ -6,7 +6,7 @@ AI content uses producer credentials and reviewed proposals by default. Separate
 
 All built-in sources default to `proposal_only`: `session` (title/goal), `now`, `recap`, `events`, `pin` and `work`. This also applies to existing producers with `canAutoPublish: true` after upgrading. Saved content, layouts and public snapshots remain intact.
 
-Read `GET /api/v1/sources` (`getSources` in OpenAPI, `get_sources` in MCP) with a producer token. The response lists source IDs, underlying paths, default policy and effective `policy`. Capabilities include the same data in `sourcePolicies`; the overlay catalog includes `sources`.
+Read `GET /api/v1/sources` (`getSources` in OpenAPI) without a token. The response lists source IDs, underlying paths, default policy and effective `policy`; it contains no source content. Token-free proposal context includes the same metadata. Authenticated producer MCP exposes `get_sources`, capabilities include `sourcePolicies`, and the overlay catalog includes `sources`.
 
 In **Data source publication policy** (`데이터 소스 게시 정책`), explicitly select automatic publication for only the needed sources. An `apply` requires both `apply_allowed` on every affected source and the producer's automatic publication grant. Normal field/operation/session grants, public provenance, revisions, observation ordering, ownership, locks and the AI write gate still apply. Source overrides persist across restarts and are operator-only.
 

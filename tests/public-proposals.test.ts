@@ -87,6 +87,10 @@ test('HTTP permits token-free proposals only and keeps private APIs, immediate p
   await new Promise<void>(resolve=>app.server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${(app.server.address() as {port:number}).port}`;
   const call=async(path:string,body?:object)=>{const response=await fetch(base+'/api/v1'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};};
   try{
+    const before=x.before(),sources=await call('/sources');assert.equal(sources.status,200);assert.deepEqual(sources.data,{sources:x.engine.contentSources()});assert.deepEqual(x.before(),before);
+    for(const secret of ['PRIVATE_SESSION_TITLE','PRIVATE_SESSION_GOAL','PRIVATE_EDITORIAL_NOW','PRIVATE_WIDGET_CAPTION'])assert.ok(!JSON.stringify(sources.data).includes(secret));
+    assert.equal((await fetch(base+'/api/v1/sources',{headers:{Origin:'https://untrusted.invalid'}})).status,403);
+    assert.equal((await call('/sources',{policy:'apply_allowed'})).status,401);
     assert.equal((await call('/public/proposals/context')).status,200);
     const content=x.content();assert.equal((await call('/public/proposals/content/validate',content)).status,200);assert.equal((await call('/public/proposals/content',content)).data.outcome,'proposed');
     assert.equal((await call('/public/proposals/content',{...content,intent:'apply'})).data.error.code,'PROPOSAL_ONLY');

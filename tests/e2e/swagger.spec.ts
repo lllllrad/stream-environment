@@ -49,7 +49,7 @@ test('local Swagger supports explicit producer and controller authorization and 
     await page.reload();await expect(page.locator('#operations-Producer-getCapabilities')).toBeVisible();
     const refreshed=page.locator('#operations-Producer-getCapabilities');await refreshed.locator('.opblock-summary').click();await refreshed.getByRole('button',{name:'Try it out',exact:true}).click();
     result=page.waitForResponse(r=>r.url().endsWith('/api/v1/capabilities'));await refreshed.getByRole('button',{name:'Execute',exact:true}).click();expect((await result).status()).toBe(401);
-    await page.goto('/docs');await expect(page.getByRole('heading',{name:'FRAME API Explorer',exact:true})).toBeVisible();await expect(page.locator('#operations-Producer-getSources')).toBeVisible();
+    await page.goto('/docs');await expect(page.getByRole('heading',{name:'FRAME API Explorer',exact:true})).toBeVisible();await expect(page.locator('#operations-Discovery-getSources')).toBeVisible();
     await page.screenshot({path:'artifacts/swagger-ui.png'});
     expect(externalRequests).toEqual([]);expect(errors).toEqual([]);
   }finally{
