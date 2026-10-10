@@ -4,6 +4,8 @@ import { ensure } from '../contracts/errors.ts';
 import { canonical, hash, LIMITS, OPERATIONS, parseChange, pathAllowed, pathsFor, text, tokenHash, validPath } from '../contracts/validation.ts';
 import type { Actor, Audit, ChangeSet, Control, Operation, Output, Proposal, ProposalPreview, PublicSnapshot, Receipt, Session } from '../contracts/types.ts';
 import { filterHeld, project, samePublic } from './projection.ts';
+import type { OverlayConfig, RenderPreview } from '../contracts/overlay.ts';
+import { defaultOverlayConfig, defaultLayout, overlayPair, validatedWidgets, projectOverlay } from './overlays.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
 const stamp = () => new Date().toISOString();
@@ -21,9 +23,62 @@ export class Engine {
         this.store.put(`output:${id}`, { screenId: id, preset, snapshot: existing?.snapshot ?? { screenId: id, preset, publicRevision: 0, sessionId: null, mode: 'auto', leaseMs, publishedAt: stamp(), content: null } });
       }
       for (const auth of this.store.list<{ role: string; tokenHash: string }>('auth:')) if (auth.role === 'display') this.store.delete(`auth:${auth.tokenHash}`);
+      if (!this.store.get('overlays')) this.store.put('overlays',defaultOverlayConfig());
+      for (const overlay of this.overlayConfig().overlays) if (!this.store.get(`output:${overlay.id}`)) this.store.put(`output:${overlay.id}`,{screenId:overlay.id,preset:'full',overlayId:overlay.id,snapshot:{screenId:overlay.id,preset:'full',publicRevision:0,sessionId:null,mode:this.control().mode,leaseMs,publishedAt:stamp(),content:null,overlay:projectOverlay(this.overlayConfig(),overlay.id,undefined,stamp())}});
     });
   }
   control(): Control { return this.store.get<Control>('control')!; }
+  overlayConfig():OverlayConfig { return this.store.get<OverlayConfig>('overlays')!; }
+  private projected(session:Session|undefined,output:Output,control:Control,config=this.overlayConfig(),sceneId=config.activeSceneId,actor?:Actor):PublicSnapshot {
+    if (!output.overlayId) return project(session,output,control,this.leaseMs,stamp());
+    const overlay=projectOverlay(config,output.overlayId,control.mode==='hidden'?undefined:session,stamp(),sceneId,actor);
+    if(control.mode==='hidden') for(const widget of overlay.widgets) widget.blocks=[];
+    return {screenId:output.screenId,preset:'full',publicRevision:output.snapshot.publicRevision,sessionId:control.mode==='hidden'?null:session?.id??null,mode:control.mode,leaseMs:this.leaseMs,publishedAt:stamp(),content:null,overlay};
+  }
+  updateOverlays(input:{expectedRevision:number;action:string;overlayId?:string;sceneId?:string;sourceSceneId?:string;name?:string;width?:number;height?:number;widgets?:unknown}):OverlayConfig {
+    return this.commit(()=>{
+      const config=this.overlayConfig();
+      ensure(config.revision===input.expectedRevision,'OVERLAY_REVISION_CONFLICT','Overlay configuration changed. Reload before saving.',409);
+      if(input.action==='create_overlay'){
+        ensure(Number.isInteger(input.width)&&Number.isInteger(input.height)&&input.width!>=640&&input.width!<=3840&&input.height!>=360&&input.height!<=2160,'INVALID_OVERLAY','Overlay size must be 640–3840 by 360–2160 pixels.');
+        ensure(config.overlays.length<8&&!config.overlays.some(o=>o.width===input.width&&o.height===input.height),'OVERLAY_EXISTS','An overlay already exists at this resolution, or the eight-overlay limit is reached.');
+        const overlay={id:`overlay-${input.width}x${input.height}`,name:text(input.name,60),width:input.width!,height:input.height!};
+        config.overlays.push(overlay);config.layouts.push(...config.scenes.map(scene=>defaultLayout(overlay,scene)));
+        this.store.put(`output:${overlay.id}`,{screenId:overlay.id,preset:'full',overlayId:overlay.id,snapshot:{screenId:overlay.id,preset:'full',publicRevision:0,sessionId:null,mode:'hidden',leaseMs:this.leaseMs,publishedAt:stamp(),content:null}});
+      }else if(input.action==='create_scene'){
+        const name=text(input.name,60);ensure(config.scenes.length<16&&!config.scenes.some(s=>s.name===name),'SCENE_EXISTS','Scene name exists, or the sixteen-scene limit is reached.');
+        const source=input.sourceSceneId??config.activeSceneId;ensure(config.scenes.some(s=>s.id===source),'NOT_FOUND','Source scene not found.',404);
+        const scene={id:`scene_${randomUUID()}`,name};config.scenes.push(scene);
+        config.layouts.push(...config.overlays.map(overlay=>({...structuredClone(overlayPair(config,overlay.id,source).layout),sceneId:scene.id,revision:0})));
+      }else if(input.action==='activate_scene'){
+        ensure(config.scenes.some(s=>s.id===input.sceneId),'NOT_FOUND','Scene not found.',404);
+        if(config.activeSceneId===input.sceneId)return config;
+        config.activeSceneId=input.sceneId!;
+      }else if(input.action==='save_layout'){
+        const {overlay,layout}=overlayPair(config,input.overlayId!,input.sceneId!);
+        const widgets=validatedWidgets(overlay,input.widgets);
+        if(canonical(widgets)===canonical(layout.widgets))return config;
+        layout.widgets=widgets;layout.revision++;
+      }else throw new Error('Unknown overlay action.');
+      config.revision++;this.store.put('overlays',config);this.log(operator,null,null,`Overlay configuration: ${input.action}`,['/overlays'],null);return config;
+    });
+  }
+  layoutPreview(overlayId:string,sceneId:string,widgets?:unknown):PublicSnapshot {
+    const config=this.overlayConfig(),{overlay,layout}=overlayPair(config,overlayId,sceneId);
+    if(widgets!==undefined)layout.widgets=validatedWidgets(overlay,widgets);
+    const c=this.control();return this.projected(c.activeSessionId?this.session(c.activeSessionId):undefined,this.output(overlayId),{...c,mode:'auto'},config,sceneId);
+  }
+  renderPreview(actor:Actor,id:string,input:{overlayId:string;sceneId?:string;change?:unknown}):RenderPreview {
+    if(actor.role==='producer')actor=this.actor(actor.id);
+    let session=this.readSession(actor,id);const revision=session.revision;let changedPaths:string[]=[];
+    if(input.change!==undefined){
+      const prepared=this.prepare(actor,id,input.change);
+      ensure(!prepared.receipt,'PREVIEW_REPLAY','This request already has a receipt. Use a new candidate ID to preview.',409);
+      const candidate=this.candidate(actor,prepared.change);session=candidate.after;changedPaths=candidate.paths;
+    }
+    const config=this.overlayConfig(),output=this.output(input.overlayId);ensure(output.overlayId,'INVALID_OVERLAY','Rendering inspection requires a full-canvas overlay.');
+    return {snapshot:this.projected(session,output,{...this.control(),mode:'auto'},config,input.sceneId??config.activeSceneId,actor),sessionRevision:revision,configRevision:config.revision,changedPaths,hypothetical:true};
+  }
   session(id: string): Session { const s = this.store.get<Session>(`session:${id}`); ensure(s, 'NOT_FOUND', 'Session not found.', 404); return s; }
   output(id: string): Output { const o = this.store.get<Output>(`output:${id}`); ensure(o, 'NOT_FOUND', 'Output not found.', 404); return o; }
   actor(id: string): Actor { const a = this.store.get<Actor>(`producer:${id}`); ensure(a && !a.revoked, 'UNAUTHORIZED', 'Producer credential is revoked.', 401); return a; }
@@ -34,7 +89,7 @@ export class Engine {
   private publish(): string[] {
     const control = this.control(); const session = control.activeSessionId ? this.session(control.activeSessionId) : undefined; const changed: string[] = [];
     for (const output of this.store.list<Output>('output:')) {
-      let next = project(session, output, control, this.leaseMs, stamp());
+      let next = this.projected(session, output, control);
       if (control.mode === 'hold') next = { ...filterHeld(output.snapshot, session, stamp()), mode: 'hold', leaseMs: this.leaseMs };
       if (!samePublic(next, output.snapshot)) {
         next.publicRevision = output.snapshot.publicRevision + 1; next.publishedAt = stamp();
@@ -52,11 +107,11 @@ export class Engine {
   tick(): void {
     // No transaction when there is no expiring published notice.
     const now = stamp();
-    if (this.store.list<Output>('output:').some(o => o.snapshot.content?.pin?.expiresAt && o.snapshot.content.pin.expiresAt <= now)) this.commit(() => {});
+    if (this.store.list<Output>('output:').some(o => (o.snapshot.content?.pin?.expiresAt && o.snapshot.content.pin.expiresAt <= now)||o.snapshot.overlay?.widgets.some(w=>w.blocks.some(b=>b.expiresAt&&b.expiresAt<=now)))) this.commit(() => {});
   }
   preview(id: string): { published: PublicSnapshot; next: PublicSnapshot } {
     const output = this.output(id), c = this.control();
-    return { published: output.snapshot, next: project(c.activeSessionId ? this.session(c.activeSessionId) : undefined, output, { ...c, mode: 'auto' }, this.leaseMs, stamp()) };
+    return { published: output.snapshot, next: this.projected(c.activeSessionId ? this.session(c.activeSessionId) : undefined, output, { ...c, mode: 'auto' }) };
   }
   createSession(input: { title: unknown; goal: unknown; expectedControlRevision: number }): Session {
     return this.commit(() => {
@@ -266,7 +321,7 @@ export class Engine {
     // Simulate the same operator candidate as approval, without receipts, writes or disclosure promotion.
     const candidate = this.candidate(operator, { ...p.change, intent: 'apply', baseRevision: s.revision });
     const now = stamp(), hypothetical = { ...control, mode: 'auto' as const };
-    return { proposalId: p.id, proposalRevision: p.revision, sessionRevision: s.revision, baseRevision: p.change.baseRevision, stale: p.change.baseRevision !== s.revision, publication: control.activeSessionId === s.id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, before: project(candidate.before, output, hypothetical, this.leaseMs, now), after: project(candidate.after, output, hypothetical, this.leaseMs, now) };
+    return { proposalId: p.id, proposalRevision: p.revision, sessionRevision: s.revision, baseRevision: p.change.baseRevision, stale: p.change.baseRevision !== s.revision, publication: control.activeSessionId === s.id ? this.publication() : 'not_applicable', changedPaths: candidate.changed, before: this.projected(candidate.before, output, hypothetical), after: this.projected(candidate.after, output, hypothetical) };
   }
   decision(id: string, input: { decision: string; expectedProposalRevision: number; expectedRevision: number; acknowledgeStale?: boolean; allowDisclosure?: boolean }): Proposal {
     return this.commit(() => {

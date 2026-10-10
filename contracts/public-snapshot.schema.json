@@ -58,6 +58,215 @@
     },
     "compact": {
       "type": "boolean"
+    },
+    "overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sceneId": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "sceneName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "configRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "layoutRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "widgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "type": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,59}$"
+              },
+              "x": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 48,
+                "maximum": 3840
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 32,
+                "maximum": 2160
+              },
+              "visible": {
+                "type": "boolean"
+              },
+              "settings": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fontSize",
+                  "minFontSize",
+                  "padding",
+                  "maxLines",
+                  "overflow",
+                  "background",
+                  "color",
+                  "showDetails",
+                  "maxItems",
+                  "message",
+                  "detail"
+                ],
+                "properties": {
+                  "fontSize": {
+                    "type": "integer",
+                    "minimum": 12,
+                    "maximum": 80
+                  },
+                  "minFontSize": {
+                    "type": "integer",
+                    "minimum": 12,
+                    "maximum": 80
+                  },
+                  "padding": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 64
+                  },
+                  "maxLines": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20
+                  },
+                  "overflow": {
+                    "enum": [
+                      "clip",
+                      "ellipsis",
+                      "shrink",
+                      "scroll"
+                    ]
+                  },
+                  "background": {
+                    "type": "string",
+                    "pattern": "^(#[0-9a-fA-F]{6}|transparent)$"
+                  },
+                  "color": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "showDetails": {
+                    "type": "boolean"
+                  },
+                  "maxItems": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "detail": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              },
+              "blocks": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "maxLength": 240
+                    },
+                    "text": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "role": {
+                      "enum": [
+                        "heading",
+                        "body",
+                        "label"
+                      ]
+                    },
+                    "expiresAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "text",
+                    "role"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "x",
+              "y",
+              "width",
+              "height",
+              "visible",
+              "settings",
+              "blocks"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "width",
+        "height",
+        "sceneId",
+        "sceneName",
+        "configRevision",
+        "layoutRevision",
+        "widgets"
+      ]
     }
   },
   "required": [

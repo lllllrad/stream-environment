@@ -31,6 +31,19 @@ export function project(session: Session | undefined, output: Output, control: C
 
 export function filterHeld(snapshot: PublicSnapshot, session: Session | undefined, now: string): PublicSnapshot {
   const next = structuredClone(snapshot);
+  if(next.overlay){
+    const eventIds=new Set(session?.events.filter(e=>e.retractedAt).map(e=>e.id)),workIds=new Set(session?.workItems.filter(w=>w.retractedAt).map(w=>w.id));
+    for(const widget of next.overlay.widgets)widget.blocks=widget.blocks.filter(b=>{
+      if(b.path.startsWith('/widget/'))return true;
+      if(!session||next.sessionId!==session.id)return false;
+      if(b.expiresAt&&b.expiresAt<=now)return false;
+      if(b.path.startsWith('/pin')&&!session.pin)return false;
+      if(b.path.startsWith('/now')&&session.status==='ended')return false;
+      if(b.path.startsWith('/events/')&&eventIds.has(b.path.split('/')[2]))return false;
+      if(b.path.startsWith('/workItems/')&&workIds.has(b.path.split('/')[2]))return false;
+      return true;
+    });
+  }
   if (!session || next.sessionId !== session.id) return { ...next, content: null, sessionId: null };
   if (next.content) {
     const retracted = new Set(session.events.filter(e => e.retractedAt).map(e => e.id));
