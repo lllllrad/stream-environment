@@ -35,6 +35,7 @@
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "esbuild": "0.25.12",
+    "swagger-ui-dist": "5.33.1",
     "typescript": "5.9.3"
   }
 }

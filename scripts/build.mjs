@@ -1,7 +1,12 @@
 import { build } from 'esbuild';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
 await mkdir('dist', { recursive: true });
 await build({ entryPoints: { admin: 'src/web/admin.tsx', display: 'src/web/display.tsx' }, outdir: 'dist', bundle: true, minify: true, sourcemap: false, format: 'esm', platform: 'browser', target: 'es2022', jsx: 'automatic' });
 for (const name of ['admin','display']) await writeFile(`dist/${name}.html`, `<!doctype html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>FRAME · ${name === 'admin' ? 'Control Room' : 'Broadcast'}</title><link rel="stylesheet" href="/${name}.css"></head><body><div id="root"></div><script type="module" src="/${name}.js"></script></body></html>`);
 await build({entryPoints:['src/web/render-preview.tsx'],outfile:'dist/render-preview.js',bundle:true,minify:true,format:'iife',platform:'browser',target:'es2022',jsx:'automatic'});
-console.log('Built separate operator and broadcast bundles.');
+const swaggerDir=createRequire(import.meta.url)('swagger-ui-dist').getAbsoluteFSPath();
+for(const name of ['swagger-ui-bundle.js','swagger-ui.css','LICENSE'])await copyFile(join(swaggerDir,name),`dist/${name === 'LICENSE' ? 'swagger-LICENSE.txt' : name}`);
+for(const name of ['swagger.html','swagger.js'])await copyFile(`src/web/${name}`,`dist/${name}`);
+console.log('Built operator, broadcast and local Swagger UI assets.');

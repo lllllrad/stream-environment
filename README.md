@@ -112,6 +112,8 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Contracts and operations
 
+Open [Swagger UI](http://127.0.0.1:4310/swagger) (also `/docs`) to browse the API and use **Try it out** with an explicitly authorized producer/operator or controller token. All assets are served locally. See the [Swagger guide](docs/swagger.md) for authentication and request examples.
+
 AI agents can fetch the single-file OpenAPI 3.1 specification at `http://<dashboard-computer-IP>:4310/openapi.json` without a token. The served document uses that dashboard origin for `servers[0].url`, includes all schemas, stable operation IDs, and proposal/apply request examples. Producer API calls require a registered producer bearer token; Direct control operations require a separate scoped controller token. See [OpenAPI discovery and import](docs/client-guide.md#openapi-discovery-and-import).
 
 - [OpenAPI](contracts/openapi.json), [ChangeSet](contracts/change-set.schema.json), [public snapshot](contracts/public-snapshot.schema.json), [receipt](contracts/change-receipt.schema.json), [error](contracts/error.schema.json), and [session export](contracts/session-export.schema.json).

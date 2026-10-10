@@ -55,6 +55,8 @@ Check response status and `ok` on every context/capability read too. The example
 
 ## OpenAPI discovery and import
 
+For an interactive browser explorer, open `/swagger` (also `/docs`) on the same dashboard. Use **Authorize** and **Try it out** with the appropriate bearer token. See the [Swagger UI guide](swagger.md); opening the page does not authenticate protected requests.
+
 Fetch `GET http://<dashboard-computer-IP>:4310/openapi.json` from the agent computer. This public endpoint requires no token and contains only API metadata and synthetic examples, with no session content or credentials. The server performs its normal Host/Origin checks. The response uses the requested dashboard origin in `servers[0].url`; fetching through a LAN address or VPN address keeps subsequent calls on that same address. It ignores forwarded headers.
 
 The OpenAPI 3.1 document is self-contained: all schemas and `$ref` targets are inside the single JSON file. Import it by URL into an OpenAPI-compatible client, or download it first (replace the example IP with the dashboard computer's address):

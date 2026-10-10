@@ -93,6 +93,18 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       const url = new URL(req.url ?? '/', `http://${req.headers.host}`), path = url.pathname;
       const post = req.method === 'POST', get = req.method === 'GET';
       if (get && path === '/openapi.json') return send(res, { ...openapi, servers: [{ url: `http://${host}`, description: 'Dashboard origin used to fetch this specification.' }] });
+      if(get&&options.webDir){
+        const swaggerAssets:Record<string,[string,string]>={
+          '/swagger':['swagger.html','text/html'], '/swagger/':['swagger.html','text/html'],
+          '/docs':['swagger.html','text/html'], '/docs/':['swagger.html','text/html'],
+          '/swagger/swagger-ui.css':['swagger-ui.css','text/css'],
+          '/swagger/swagger-ui-bundle.js':['swagger-ui-bundle.js','text/javascript'],
+          '/swagger/init.js':['swagger.js','text/javascript'],
+          '/swagger/LICENSE.txt':['swagger-LICENSE.txt','text/plain']
+        };
+        const asset=swaggerAssets[path];
+        if(asset){const bytes=readFileSync(`${options.webDir}/${asset[0]}`);res.writeHead(200,{'Content-Type':`${asset[1]}; charset=utf-8`});res.end(bytes);return;}
+      }
       if (get && path === '/health/live') return send(res, { ok: true });
       if (get && path === '/health/ready') { engine.store.db.prepare('SELECT 1').get(); return send(res, { ok: true }); }
       if (post && path === '/api/v1/admin/login') {

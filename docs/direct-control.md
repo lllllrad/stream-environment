@@ -28,6 +28,8 @@ Producer and operator credentials cannot call controller routes. Controller cred
 
 ## Discover and call the HTTP API
 
+Open `/swagger` on the dashboard and authorize **controllerAuth** to inspect and call these operations in the browser. See [Swagger UI](swagger.md). **bearerAuth** uses a separate producer/operator credential.
+
 From another computer, fetch `http://<dashboard-computer-IP>:4310/openapi.json` without authentication. Import its **Direct control** operations with a controller bearer token. Use a reachable server address as the base URL; `0.0.0.0` is only the listen address.
 
 | Operation ID | HTTP endpoint | Purpose |

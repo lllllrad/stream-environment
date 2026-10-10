@@ -3,6 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { request as httpRequest } from 'node:http';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { Store } from '../src/server/store.ts';
@@ -28,10 +30,10 @@ function operation(document: any, id: string) {
   }
   throw new Error(`Missing operation ${id}`);
 }
-async function fixture() {
+async function fixture(webDir?:string) {
   const store = new Store(':memory:'), engine = new Engine(store), adminToken = 'openapi-private-operator-token-long-enough';
   allowAutomaticSources(store);
-  const app = createHttp(engine, {adminToken, heartbeatMs:100, producerRate:100, producerBurst:100});
+  const app = createHttp(engine, {adminToken, webDir, heartbeatMs:100, producerRate:100, producerBurst:100});
   await new Promise<void>(resolve => app.server.listen(0,'0.0.0.0',resolve));
   const port = (app.server.address() as {port:number}).port, base = `http://127.0.0.2:${port}`;
   const session = engine.createSession({title:'PRIVATE_METADATA_SESSION',goal:'PRIVATE_METADATA_GOAL',expectedControlRevision:0});
@@ -39,6 +41,26 @@ async function fixture() {
   const issued = engine.producer({name:'PRIVATE_METADATA_PRODUCER',canAutoPublish:false,allowedSessions:[session.id],allowedOperations:['set_now','update_session','set_pin','upsert_event'],allowedPaths:['/now','/session/recap','/pin','/events/*'],expectedControlRevision:1});
   return {store,engine,app,base,port,session,issued,adminToken,close:async()=>{await app.close();store.close();}};
 }
+
+test('Swagger page and initializer are public fixed assets with Host/Origin checks and no state changes',async()=>{
+  const x=await fixture(resolve('src/web'));try{
+    const before={session:x.engine.session(x.session.id),control:x.engine.control(),audit:x.store.audits()};
+    for(const path of ['/swagger','/swagger/','/docs','/docs/']){
+      const response=await fetch(x.base+path);assert.equal(response.status,200);
+      assert.match(response.headers.get('content-type')! ,/text\/html/);
+      assert.match(response.headers.get('content-security-policy')!,/script-src 'self'/);
+      const html=await response.text();assert.match(html,/FRAME API Explorer/);assert.match(html,/\/swagger\/init.js/);
+      assert.ok(!html.includes('PRIVATE_METADATA'));assert.ok(!html.includes(x.issued.token));
+    }
+    const script=await fetch(x.base+'/swagger/init.js');assert.equal(script.status,200);assert.match(script.headers.get('content-type')!,/text\/javascript/);
+    const missingAsset=await fetch(x.base+'/swagger/swagger-ui.css');assert.equal(missingAsset.status,503);assert.equal((await missingAsset.json()).error.code,'SERVICE_UNAVAILABLE');
+    assert.equal((await fetch(x.base+'/swagger',{method:'POST'})).status,404);
+    assert.equal((await fetch(x.base+'/swagger/package.json')).status,404);
+    const hostStatus=await new Promise<number>((resolve,reject)=>{const req=httpRequest(x.base+'/swagger',{headers:{Host:'untrusted.invalid'}},response=>{response.resume();resolve(response.statusCode!);});req.on('error',reject);req.end();});assert.equal(hostStatus,403);
+    assert.equal((await fetch(x.base+'/swagger',{headers:{Origin:'https://untrusted.invalid'}})).status,403);
+    assert.deepEqual({session:x.engine.session(x.session.id),control:x.engine.control(),audit:x.store.audits()},before);
+  }finally{await x.close();}
+});
 
 test('OpenAPI is self-contained with resolvable pointers, unique operation IDs and explicit security', () => {
   assert.equal(spec.openapi,'3.1.0');
