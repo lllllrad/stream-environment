@@ -9,6 +9,10 @@ import { defaultOverlayConfig, defaultLayout, overlayPair, validatedWidgets, pro
 import { attachInspection } from './inspection.ts';
 import type { LayoutChange, LayoutProposal, LayoutProposalReceipt, LayoutProposalPreview } from '../contracts/layout-proposals.ts';
 import { parseLayoutChange, layoutChangedPaths } from './layout-proposals.ts';
+import { CONTENT_SOURCES, sourcesForPath } from '../sources/registry.ts';
+import { publicationPolicies, type PublicationPolicy, type EffectiveSource } from '../contracts/source-policy.ts';
+import { parseDirectCommand, type Controller, type WidgetTarget, type DirectContext, type DirectReceipt } from '../contracts/direct-control.ts';
+import { widgetPlugin } from '../widgets/registry.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
 const stamp = () => new Date().toISOString();
@@ -37,6 +41,20 @@ export class Engine {
   }
   control(): Control { return this.store.get<Control>('control')!; }
   overlayConfig():OverlayConfig { return this.store.get<OverlayConfig>('overlays')!; }
+  contentSources():EffectiveSource[]{
+    const overrides=this.store.get<Record<string,PublicationPolicy>>('source-policies')??{};
+    return CONTENT_SOURCES.map(source=>({...source,policy:overrides[source.id]??source.defaultPolicy}));
+  }
+  setSourcePolicy(input:{expectedControlRevision:number;sourceId:string;policy:PublicationPolicy}):EffectiveSource[]{
+    return this.commit(()=>{
+      const control=this.control();this.checkControl(control,input.expectedControlRevision);
+      ensure(CONTENT_SOURCES.some(s=>s.id===input.sourceId)&&publicationPolicies.includes(input.policy),'SCHEMA_VALIDATION','Unknown source or publication policy.');
+      if(this.contentSources().find(s=>s.id===input.sourceId)!.policy===input.policy)return this.contentSources();
+      this.store.put('source-policies',{...this.store.get<Record<string,PublicationPolicy>>('source-policies'),[input.sourceId]:input.policy});
+      control.controlRevision++;this.store.put('control',control);this.log(operator,null,null,`Source policy: ${input.sourceId} ${input.policy}`,[`/source-policies/${input.sourceId}`],null);
+      return this.contentSources();
+    });
+  }
   private projected(session:Session|undefined,output:Output,control:Control,config=this.overlayConfig(),sceneId=config.activeSceneId,actor?:Actor):PublicSnapshot {
     if (!output.overlayId) return project(session,output,control,this.leaseMs,stamp());
     const overlay=projectOverlay(config,output.overlayId,control.mode==='hidden'?undefined:session,stamp(),sceneId,actor);
@@ -252,6 +270,11 @@ export class Engine {
         ensure(actor.allowedOperations?.includes(op.op), 'OPERATION_FORBIDDEN', 'Producer is not granted this operation.', 403, paths);
         ensure(paths.every(p => pathAllowed(p, actor.allowedPaths)), 'FIELD_FORBIDDEN', 'Producer is not granted these fields.', 403, paths);
         if (change.intent === 'apply') {
+          const policies=this.contentSources();
+          for(const path of paths){
+            const sources=sourcesForPath(path);
+            ensure(sources.length&&sources.every(source=>policies.find(p=>p.id===source.id)?.policy==='apply_allowed'),'SOURCE_REVIEW_REQUIRED','This data source requires an operator-reviewed proposal.',403,[path]);
+          }
           ensure(!s.locks.some(l => paths.includes(l.path)), 'FIELD_LOCKED', 'An operator lock protects this field.', 409, paths, s.revision);
           if (op.op === 'set_now' && s.nowObservedAt) ensure(Date.parse(observed) >= Date.parse(s.nowObservedAt), 'STALE_OBSERVATION', 'This observation predates the current activity.', 409, paths);
         }
@@ -333,7 +356,7 @@ export class Engine {
     });
   }
   publication(): 'published' | 'held' | 'hidden' { return this.control().mode === 'auto' ? 'published' : this.control().mode === 'hold' ? 'held' : 'hidden'; }
-  private log(actor: Actor, before: Session | null, after: Session | null, reason: string, paths: string[], requestId: string | null, publication?: string): void {
+  private log(actor: {id:string}, before: Session | null, after: Session | null, reason: string, paths: string[], requestId: string | null, publication?: string): void {
     const delta = (s: Session | null): Session | null => s ? { ...s, events: s.events.filter(e => paths.includes(`/events/${e.id}`)), workItems: s.workItems.filter(w => paths.includes(`/workItems/${w.id}`)), locks: s.locks.filter(l => paths.includes(l.path)) } : null;
     this.store.audit({ sessionId: after?.id ?? before?.id ?? null, actorId: actor.id, reason, receivedAt: stamp(), requestId, revision: after?.revision ?? null, publication: publication??(after && this.control().activeSessionId !== after.id ? 'not_applicable' : this.publication()), changedPaths: paths, before: delta(before), after: delta(after) });
   }
@@ -372,6 +395,69 @@ export class Engine {
       const updated = { ...c, ...(input.mode !== undefined ? { mode: input.mode } : {}), ...(input.activeSessionId !== undefined ? { activeSessionId: input.activeSessionId } : {}), ...(input.aiWritesEnabled !== undefined ? { aiWritesEnabled: input.aiWritesEnabled } : {}) };
       if (canonical(c) !== canonical(updated)) { updated.controlRevision++; this.store.put('control', updated); this.log(operator, null, null, 'Channel control changed', ['/control'], null); }
       return updated;
+    });
+  }
+  controllers():Controller[]{return this.store.list<Controller>('controller:').map(({tokenHash,...controller})=>controller);}
+  controlCredential(digest:string):Controller{
+    const controller=this.store.list<Controller>('controller:').find(c=>!c.revoked&&c.tokenHash===digest);
+    ensure(controller,'UNAUTHORIZED','Direct control token is invalid or revoked.',401);return controller;
+  }
+  private currentController(id:string):Controller{
+    const controller=this.store.get<Controller>(`controller:${id}`);ensure(controller&&!controller.revoked,'UNAUTHORIZED','Direct control token is invalid or revoked.',401);return controller;
+  }
+  registerController(input:{expectedControlRevision:number;name:string;allowedSceneIds:string[];widgets:WidgetTarget[]}):{controller:Controller;token:string}{
+    return this.commit(()=>{
+      const control=this.control(),config=this.overlayConfig();this.checkControl(control,input.expectedControlRevision);
+      ensure(Array.isArray(input.allowedSceneIds)&&input.allowedSceneIds.length<=16&&new Set(input.allowedSceneIds).size===input.allowedSceneIds.length&&input.allowedSceneIds.every(id=>config.scenes.some(s=>s.id===id)),'SCHEMA_VALIDATION','Select existing unique scene IDs.');
+      ensure(Array.isArray(input.widgets)&&input.widgets.length<=128,'SCHEMA_VALIDATION','Select at most 128 widget instances.');
+      const keys=new Set<string>();
+      for(const target of input.widgets){
+        ensure(target&&typeof target==='object'&&Object.keys(target).length===3&&['overlayId','sceneId','widgetId'].every(k=>typeof (target as any)[k]==='string'),'SCHEMA_VALIDATION','Invalid widget scope.');
+        const {layout}=overlayPair(config,target.overlayId,target.sceneId),widget=layout.widgets.find(w=>w.id===target.widgetId);
+        ensure(widget&&widgetPlugin(widget.type)?.directControl,'CONTROL_FORBIDDEN','This widget plugin does not allow direct control.',403);
+        const key=canonical(target);ensure(!keys.has(key),'SCHEMA_VALIDATION','Duplicate widget scope.');keys.add(key);
+      }
+      ensure(input.allowedSceneIds.length||input.widgets.length,'SCHEMA_VALIDATION','Select at least one scene or widget.');
+      ensure(this.controllers().filter(c=>!c.revoked).length<128,'CONTROLLER_LIMIT','At most 128 active control tokens are supported.',429);
+      const token=secret(),controller:Controller={id:`controller_${randomUUID()}`,role:'controller',name:text(input.name,60),allowedSceneIds:structuredClone(input.allowedSceneIds),widgets:structuredClone(input.widgets),revoked:false,lastUsedAt:null,tokenHash:tokenHash(token)};
+      this.store.put(`controller:${controller.id}`,controller);control.controlRevision++;this.store.put('control',control);this.log(operator,null,null,'Direct control token registered',['/controllers'],null);
+      return {controller:{...controller,tokenHash:undefined},token};
+    });
+  }
+  revokeController(id:string,input:{expectedControlRevision:number}):void{
+    this.commit(()=>{const control=this.control();this.checkControl(control,input.expectedControlRevision);const controller=this.currentController(id);controller.revoked=true;this.store.put(`controller:${id}`,controller);control.controlRevision++;this.store.put('control',control);this.log(operator,null,null,'Direct control token revoked',['/controllers'],null);});
+  }
+  directContext(id:string):DirectContext{
+    const controller=this.currentController(id),config=this.overlayConfig();
+    return {configRevision:config.revision,activeSceneId:config.activeSceneId,mode:this.control().mode,scenes:config.scenes.filter(s=>controller.allowedSceneIds.includes(s.id)),widgets:controller.widgets.flatMap(target=>{
+      const layout=config.layouts.find(l=>l.overlayId===target.overlayId&&l.sceneId===target.sceneId),widget=layout?.widgets.find(w=>w.id===target.widgetId),plugin=widget&&widgetPlugin(widget.type);
+      return widget&&plugin?.directControl?[{...target,widget,settingsKeys:plugin.directControl.settingsKeys}]:[];
+    })};
+  }
+  directCommand(id:string,action:'scene'|'widget',raw:unknown):DirectReceipt{
+    return this.commit(()=>{
+      const controller=this.currentController(id),command=parseDirectCommand(action,raw),digest=hash({action,command}),key=`control-receipt:${id}:${command.requestId}`;
+      const saved=this.store.get<{digest:string;receipt:DirectReceipt}>(key);
+      if(saved){ensure(saved.digest===digest,'IDEMPOTENCY_CONFLICT','This request ID already identifies another control command.',409);return saved.receipt;}
+      const config=this.overlayConfig();ensure(config.revision===command.expectedConfigRevision,'OVERLAY_REVISION_CONFLICT','Read control context again before changing the layout.',409);
+      let changed=false,publication:DirectReceipt['publication']=this.publication(),paths:string[]=[];
+      if(action==='scene'){
+        ensure(controller.allowedSceneIds.includes(command.sceneId),'CONTROL_FORBIDDEN','This token cannot select that scene.',403);
+        ensure(config.scenes.some(s=>s.id===command.sceneId),'NOT_FOUND','Scene not found.',404);
+        changed=config.activeSceneId!==command.sceneId;config.activeSceneId=command.sceneId;paths=['/overlays/activeSceneId'];
+      }else{
+        ensure(controller.widgets.some(w=>w.overlayId===command.overlayId&&w.sceneId===command.sceneId&&w.widgetId===command.widgetId),'CONTROL_FORBIDDEN','This token cannot control that widget instance.',403);
+        const {overlay,layout}=overlayPair(config,command.overlayId!,command.sceneId),widget=layout.widgets.find(w=>w.id===command.widgetId),plugin=widget&&widgetPlugin(widget.type);
+        ensure(widget&&plugin?.directControl,'CONTROL_FORBIDDEN','This widget plugin does not allow direct control.',403);
+        ensure(Object.keys(command.settings??{}).every(k=>plugin.directControl!.settingsKeys.includes(k as keyof typeof widget.settings)),'CONTROL_FORBIDDEN','This widget setting is not available for direct control.',403);
+        const replacement={...widget,...(command.visible===undefined?{}:{visible:command.visible}),settings:{...widget.settings,...command.settings}},next=validatedWidgets(overlay,layout.widgets.map(w=>w.id===widget.id?replacement:w));
+        paths=layoutChangedPaths(overlay.id,layout.sceneId,layout.widgets,next);changed=paths.length>0;
+        if(changed){layout.widgets=next;layout.revision++;}
+        if(layout.sceneId!==config.activeSceneId)publication='not_applicable';
+      }
+      if(changed){config.revision++;this.store.put('overlays',config);this.log(controller,null,null,`Direct ${action} control`,paths,command.requestId,publication);}
+      controller.lastUsedAt=stamp();this.store.put(`controller:${id}`,controller);
+      const receipt:DirectReceipt={ok:true,requestId:command.requestId,outcome:changed?'applied':'no_change',configRevision:config.revision,publication};this.store.put(key,{digest,receipt});return receipt;
     });
   }
   producer(input: { name: string; expectedControlRevision: number; canAutoPublish: boolean; canProposeLayouts?: boolean; allowedSessions: string[]; allowedOperations: string[]; allowedPaths: string[]; canEditOthers?: boolean }): { producer: Actor; token: string } {

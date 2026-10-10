@@ -1,3 +1,4 @@
+import {allowAutomaticSources} from './helpers.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
@@ -9,6 +10,7 @@ import { change, now, event } from './helpers.ts';
 async function setupHttp(options: {producerRate?:number;producerBurst?:number;allowedHosts?:string[];bindAddress?:string} = {}) {
   const store = new Store(':memory:'), engine = new Engine(store), token = 'test-operator-credential-long-enough';
   const { bindAddress = '127.0.0.1', ...httpOptions } = options;
+  allowAutomaticSources(store);
   const app = createHttp(engine, { adminToken: token, heartbeatMs: 100, producerRate: 100, producerBurst: 100, ...httpOptions });
   await new Promise<void>(resolve => app.server.listen(0, bindAddress, resolve));
   const port = (app.server.address() as {port:number}).port, base = `http://127.0.0.1:${port}`;

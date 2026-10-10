@@ -18,7 +18,9 @@ await new Promise<void>(resolve => app.server.listen(0,'127.0.0.1',resolve));
 const base = `http://127.0.0.1:${(app.server.address() as {port:number}).port}`;
 const session = engine.createSession({title:'장시간 갱신 모의 실험',goal:'세 출력과 운영 화면의 안정성을 측정합니다.',expectedControlRevision:0});
 engine.lifecycle(session.id,{action:'start',expectedRevision:0,expectedControlRevision:0});
-const producer = engine.producer({name:'Synthetic soak producer',canAutoPublish:true,allowedSessions:[session.id],allowedOperations:['set_now','upsert_event'],allowedPaths:['/now','/events/*'],expectedControlRevision:1});
+// Explicit opt-in is confined to this synthetic server's separate database.
+for (const sourceId of ['now','events']) engine.setSourcePolicy({sourceId,policy:'apply_allowed',expectedControlRevision:engine.control().controlRevision});
+const producer = engine.producer({name:'Synthetic soak producer',canAutoPublish:true,allowedSessions:[session.id],allowedOperations:['set_now','upsert_event'],allowedPaths:['/now','/events/*'],expectedControlRevision:engine.control().controlRevision});
 const browser = await chromium.launch({channel:'msedge',headless:true});
 try {
   const context = await browser.newContext({timezoneId:'Asia/Seoul'});

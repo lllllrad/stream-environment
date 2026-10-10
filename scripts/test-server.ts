@@ -1,3 +1,4 @@
+import {allowAutomaticSources} from '../tests/helpers.ts';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Store } from '../src/server/store.ts';
@@ -5,6 +6,7 @@ import { Engine } from '../src/domain/engine.ts';
 import { createHttp } from '../src/server/http.ts';
 const path = resolve(`.data/e2e-${Date.now()}`); mkdirSync(path, { recursive: true });
 const store = new Store(resolve(path, 'dashboard.db')), engine = new Engine(store, 1500);
+allowAutomaticSources(store);
 const app = createHttp(engine, { adminToken: 'e2e-operator-credential-long-enough', heartbeatMs: 250, webDir: resolve('dist'), producerRate: 100, producerBurst: 100 });
 app.server.listen(4311, '127.0.0.1');
 process.on('SIGTERM', () => { void app.close().then(() => store.close()); });

@@ -21,6 +21,10 @@
       "description": "AI content integration. Use a registered producer bearer token; actual permissions are returned by getCapabilities."
     },
     {
+      "name": "Direct control",
+      "description": "Separate scoped control bearer token; no review for allowed scene or opted-in widget changes. Cannot access Producer or Operator operations."
+    },
+    {
       "name": "Operator",
       "description": "Operator-only controls. Producer credentials cannot perform these operations."
     },
@@ -34,6 +38,1151 @@
     }
   ],
   "paths": {
+    "/api/v1/sources": {
+      "get": {
+        "operationId": "getSources",
+        "tags": [
+          "Producer"
+        ],
+        "summary": "Discover effective content-source publication policies",
+        "description": "Trusted sources default to proposal_only. Producers need both apply_allowed source policy and automatic publication grants to apply. Policies cover underlying content paths across all widgets, hidden layouts and legacy outputs.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContentSource"
+                      }
+                    }
+                  },
+                  "required": [
+                    "sources"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/source-policies": {
+      "post": {
+        "operationId": "postApiV1AdminSourcePolicies",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Set the publication policy for an installed content source",
+        "description": "Operator-only explicit override. Changes increment controlRevision; no content is submitted or unlocked.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContentSource"
+                      }
+                    }
+                  },
+                  "required": [
+                    "sources"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedControlRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sourceId": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "policy": {
+                    "enum": [
+                      "proposal_only",
+                      "apply_allowed"
+                    ]
+                  }
+                },
+                "required": [
+                  "expectedControlRevision",
+                  "sourceId",
+                  "policy"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/controllers": {
+      "get": {
+        "operationId": "getApiV1AdminControllers",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "List direct control credentials without secrets",
+        "description": "",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Controller"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postApiV1AdminControllers",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Issue a separate scoped direct control token",
+        "description": "Return token once; store only its hash. Scope uses exact existing scene IDs and overlay/scene/widget triples. At least one scope is required. Only plugins declaring directControl can be selected. Maximum 128 active tokens.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "controller": {
+                      "$ref": "#/components/schemas/Controller"
+                    },
+                    "token": {
+                      "type": "string",
+                      "maxLength": 100
+                    }
+                  },
+                  "required": [
+                    "controller",
+                    "token"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedControlRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "allowedSceneIds": {
+                    "type": "array",
+                    "maxItems": 16,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 80
+                    }
+                  },
+                  "widgets": {
+                    "type": "array",
+                    "maxItems": 128,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "overlayId": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "sceneId": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "widgetId": {
+                          "type": "string",
+                          "maxLength": 80
+                        }
+                      },
+                      "required": [
+                        "overlayId",
+                        "sceneId",
+                        "widgetId"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "expectedControlRevision",
+                  "name",
+                  "allowedSceneIds",
+                  "widgets"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/controllers/{id}/revoke": {
+      "post": {
+        "operationId": "postApiV1AdminControllersByIdRevoke",
+        "tags": [
+          "Operator"
+        ],
+        "summary": "Revoke a direct control token immediately",
+        "description": "",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "operatorCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "expectedControlRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedControlRevision"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control/context": {
+      "get": {
+        "operationId": "getControlContext",
+        "tags": [
+          "Direct control"
+        ],
+        "summary": "Read scoped direct control targets and current configuration revision",
+        "description": "Requires a separate controller bearer token. No producer/operator tokens or cookies accepted. Contains allowed scene destinations and exact eligible widget instances, not session content.",
+        "security": [
+          {
+            "controllerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectContext"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control/scene": {
+      "post": {
+        "operationId": "setControlScene",
+        "tags": [
+          "Direct control"
+        ],
+        "summary": "Select an allowed application scene without review",
+        "description": "Existing whitelisted scene only. expectedConfigRevision comes from getControlContext. Scene selection spans every overlay. Hold/Hidden remain in force; no publication restore. requestId retries recover identical receipts; changed payload conflicts.",
+        "security": [
+          {
+            "controllerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requestId",
+                  "expectedConfigRevision",
+                  "sceneId"
+                ],
+                "properties": {
+                  "requestId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expectedConfigRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                  }
+                }
+              },
+              "example": {
+                "requestId": "0194ff90-2212-4d72-8f16-d47a9ea41001",
+                "expectedConfigRevision": 0,
+                "sceneId": "break"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/control/widgets": {
+      "post": {
+        "operationId": "updateControlWidget",
+        "tags": [
+          "Direct control"
+        ],
+        "summary": "Update an allowed widget visibility or plugin-declared settings without review",
+        "description": "Exact overlay/scene/widget scope plus current plugin eligibility and setting allowlist are enforced. No geometry, source content, widget addition/removal or complete layout replacement. Away supports message/detail/showDetails and visibility. Full normal widget validation applies. Respects Hold/Hidden and inactive scenes; writes audit and receipt atomically. Revoked tokens cannot replay receipts.",
+        "security": [
+          {
+            "controllerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "requestId",
+                  "expectedConfigRevision",
+                  "sceneId",
+                  "overlayId",
+                  "widgetId"
+                ],
+                "properties": {
+                  "requestId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "expectedConfigRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "sceneId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                  },
+                  "overlayId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                  },
+                  "widgetId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                  },
+                  "visible": {
+                    "type": "boolean"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "minProperties": 1,
+                    "properties": {
+                      "fontSize": {
+                        "type": "integer",
+                        "minimum": 12,
+                        "maximum": 80
+                      },
+                      "minFontSize": {
+                        "type": "integer",
+                        "minimum": 12,
+                        "maximum": 80
+                      },
+                      "padding": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 64
+                      },
+                      "maxLines": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      },
+                      "overflow": {
+                        "enum": [
+                          "clip",
+                          "ellipsis",
+                          "shrink",
+                          "scroll"
+                        ]
+                      },
+                      "background": {
+                        "type": "string",
+                        "pattern": "^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$",
+                        "description": "Hex RGB/RGBA colors in 3, 4, 6 or 8 digits, or transparent. Alpha is the final digit or pair; shorthand is expanded when saved."
+                      },
+                      "color": {
+                        "type": "string",
+                        "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+                        "description": "Hex RGB/RGBA text color in 3, 4, 6 or 8 digits. Alpha is the final digit or pair; shorthand is expanded when saved."
+                      },
+                      "showDetails": {
+                        "type": "boolean"
+                      },
+                      "maxItems": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      "detail": {
+                        "type": "string",
+                        "maxLength": 300
+                      }
+                    }
+                  }
+                },
+                "anyOf": [
+                  {
+                    "properties": {
+                      "visible": {}
+                    },
+                    "required": [
+                      "visible"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "settings": {}
+                    },
+                    "required": [
+                      "settings"
+                    ]
+                  }
+                ]
+              },
+              "example": {
+                "requestId": "0194ff90-2212-4d72-8f16-d47a9ea41002",
+                "expectedConfigRevision": 0,
+                "overlayId": "overlay-1920x1080",
+                "sceneId": "break",
+                "widgetId": "away",
+                "visible": true,
+                "settings": {
+                  "message": "Back in a moment",
+                  "detail": "Taking a short break",
+                  "showDetails": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/overlays": {
       "get": {
         "operationId": "getLayouts",
@@ -2925,7 +4074,7 @@
           "Producer"
         ],
         "summary": "Validate and compare without mutations",
-        "description": "Creates no session changes, locks, proposal, receipt or publication. Actual submission repeats all checks. An existing matching successful receipt may be returned as replay. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires publishing grants. A lost submission response requires replaying the identical request ID and body.",
+        "description": "Creates no session changes, locks, proposal, receipt or publication. Actual submission repeats all checks. An existing matching successful receipt may be returned as replay. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires apply_allowed policies for all affected sources and producer publishing grants. A lost submission response requires replaying the identical request ID and body.",
         "security": [
           {
             "bearerAuth": []
@@ -3141,7 +4290,7 @@
           "Producer"
         ],
         "summary": "Atomically apply public changes or submit a proposal",
-        "description": "Path/body IDs must match. Maximum 64 KiB / 20 operations. Successful receipt replay is checked before version/locks. A rejected apply never silently becomes a proposal. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires publishing grants. A lost submission response requires replaying the identical request ID and body.",
+        "description": "Path/body IDs must match. Maximum 64 KiB / 20 operations. Successful receipt replay is checked before version/locks. A rejected apply never silently becomes a proposal. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires apply_allowed policies for all affected sources and producer publishing grants. A lost submission response requires replaying the identical request ID and body.",
         "security": [
           {
             "bearerAuth": []
@@ -6083,6 +7232,11 @@
   },
   "components": {
     "securitySchemes": {
+      "controllerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Separate direct control token issued by an operator for exact allowed scenes/widget instances. Usable only on Direct control routes."
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -7859,6 +9013,12 @@
           "leaseMs": {
             "type": "integer",
             "minimum": 0
+          },
+          "sourcePolicies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentSource"
+            }
           }
         },
         "required": [
@@ -7869,7 +9029,8 @@
           "canAutoPublish",
           "canProposeLayouts",
           "limits",
-          "leaseMs"
+          "leaseMs",
+          "sourcePolicies"
         ]
       },
       "Proposal": {
@@ -8746,6 +9907,18 @@
               "lastRequestMs",
               "totalRequestMs"
             ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentSource"
+            }
+          },
+          "controllers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Controller"
+            }
           }
         },
         "required": [
@@ -8757,7 +9930,9 @@
           "proposals",
           "layoutProposals",
           "audit",
-          "diagnostics"
+          "diagnostics",
+          "sources",
+          "controllers"
         ]
       },
       "ProposalPreview": {
@@ -9610,6 +10785,22 @@
               }
             },
             "additionalProperties": false
+          },
+          "directControl": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "settingsKeys": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              }
+            },
+            "required": [
+              "settingsKeys"
+            ]
           }
         },
         "required": [
@@ -9619,6 +10810,244 @@
           "description",
           "sourcePaths",
           "settingsKeys"
+        ]
+      },
+      "ContentSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "defaultPolicy": {
+            "enum": [
+              "proposal_only",
+              "apply_allowed"
+            ]
+          },
+          "policy": {
+            "enum": [
+              "proposal_only",
+              "apply_allowed"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "paths",
+          "defaultPolicy",
+          "policy"
+        ]
+      },
+      "Controller": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "role": {
+            "const": "controller"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "allowedSceneIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "overlayId": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "sceneId": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "widgetId": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              },
+              "required": [
+                "overlayId",
+                "sceneId",
+                "widgetId"
+              ]
+            }
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "lastUsedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "name",
+          "allowedSceneIds",
+          "widgets",
+          "revoked",
+          "lastUsedAt"
+        ]
+      },
+      "DirectContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activeSceneId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "mode": {
+            "enum": [
+              "auto",
+              "hold",
+              "hidden"
+            ]
+          },
+          "scenes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 60
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "overlayId": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "sceneId": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "widgetId": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "widget": {
+                  "$ref": "#/components/schemas/WidgetInstance"
+                },
+                "settingsKeys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              },
+              "required": [
+                "overlayId",
+                "sceneId",
+                "widgetId",
+                "widget",
+                "settingsKeys"
+              ]
+            }
+          }
+        },
+        "required": [
+          "configRevision",
+          "activeSceneId",
+          "mode",
+          "scenes",
+          "widgets"
+        ]
+      },
+      "DirectReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "enum": [
+              "applied",
+              "no_change"
+            ]
+          },
+          "configRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "publication": {
+            "enum": [
+              "published",
+              "held",
+              "hidden",
+              "not_applicable"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "requestId",
+          "outcome",
+          "configRevision",
+          "publication"
         ]
       },
       "OverlayCatalog": {
@@ -9633,11 +11062,18 @@
             "items": {
               "$ref": "#/components/schemas/WidgetPlugin"
             }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentSource"
+            }
           }
         },
         "required": [
           "config",
-          "plugins"
+          "plugins",
+          "sources"
         ]
       },
       "FieldVisibility": {

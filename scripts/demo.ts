@@ -24,6 +24,8 @@ if (args.includes('--exercise') || args.includes('--end')) {
   let current: Session = await call(`/sessions/${record.sessionId}/context`);
   if (args.includes('--end')) { await call(`/admin/sessions/${current.id}/lifecycle`, { action: 'end', expectedRevision: current.revision, expectedControlRevision: control.controlRevision }); console.log('Demo session ended.'); }
   else {
+    const sources = (await call('/sources', undefined, record.token)).sources;
+    if (['now','events'].some(id => sources.find((source: {id:string;policy:string}) => source.id === id)?.policy !== 'apply_allowed')) throw new Error('Explicitly enable automatic publication for now and events in Producers before exercising the demo. Source policies were not changed.');
     const endpoint = `/sessions/${current.id}/changes`;
     const operation: Operation = { op: 'set_now', value: { title: '변경 안전성 확인', detail: '중복, 잠금, 보류, 철회와 복구를 확인하는 데모입니다.', status: 'in_progress', next: null } };
     if (current.locks.some(l => l.path === '/now')) throw new Error('Unlock /now explicitly in the operator UI before exercising the demo.');
@@ -55,7 +57,12 @@ if (args.includes('--exercise') || args.includes('--end')) {
   const producer = await call('/admin/producers', { name: 'Synthetic HTTP demo', canAutoPublish: true, allowedSessions: [session.id], allowedOperations: ['update_session','set_now','set_pin','upsert_event','retract_event','upsert_work_item','retract_work_item'], allowedPaths: ['*'], expectedControlRevision: control.controlRevision });
   mkdirSync(dataDir, { recursive: true }); writeFileSync(recordPath, JSON.stringify({ sessionId: session.id, token: producer.token }, null, 2), { mode: 0o600 });
   const current = await call(`/sessions/${session.id}/context`, undefined, producer.token);
-  if (fixture.operations.length) { const receipt = await call(`/sessions/${session.id}/changes`, draft(current, fixture.operations), producer.token); console.log(`Demo state stored: ${receipt.outcome}; publication: ${receipt.publication}.`); }
+  if (fixture.operations.length) {
+    const receipt = await call(`/sessions/${session.id}/changes`, draft(current, fixture.operations, 'propose'), producer.token);
+    const review = await call(`/admin/proposals/${receipt.proposalId}/preview`);
+    await call(`/admin/proposals/${receipt.proposalId}/decision`, {decision:'approve',expectedProposalRevision:review.proposalRevision,expectedRevision:review.sessionRevision});
+    console.log('Synthetic demo proposal approved using the operator credential. Source publication policies were not changed.');
+  }
   if (fixture.hidden) { control = await call('/admin/control'); await call('/admin/control', { expectedControlRevision: control.controlRevision, mode: 'hidden' }); }
   const urls: Record<string,string> = {};
   for (const preset of ['full','side','lower']) urls[preset] = `${base}/display/main-${preset}`;

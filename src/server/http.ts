@@ -39,6 +39,11 @@ export function createHttp(engine: Engine, options: HttpOptions) {
     const c = engine.store.get<Credential>(`auth:${tokenHash(raw)}`);
     return c && c.role === role && c.expiresAt > Date.now() ? c : undefined;
   }
+  function consume(id:string){
+    const now=performance.now(),bucket=buckets.get(id)??{tokens:burst,at:now};
+    bucket.tokens=Math.min(burst,bucket.tokens+(now-bucket.at)*rate/1000);bucket.at=now;
+    ensure(bucket.tokens>=1,'RATE_LIMITED','Credential request rate exceeded.',429);bucket.tokens--;buckets.set(id,bucket);
+  }
   function actor(req: IncomingMessage): { actor: Actor; credential?: Credential } {
     const bearer = req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];
     if (bearer) {
@@ -46,10 +51,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       if (equal(digest, adminDigest)) return { actor: operator };
       const producer = engine.store.list<Actor>('producer:').find(a => !a.revoked && a.tokenHash === digest);
       ensure(producer, 'UNAUTHORIZED', 'Credential is invalid or revoked.', 401);
-      const now = performance.now(), bucket = buckets.get(producer.id) ?? { tokens: burst, at: now };
-      bucket.tokens = Math.min(burst, bucket.tokens + (now - bucket.at) * rate / 1000); bucket.at = now;
-      ensure(bucket.tokens >= 1, 'RATE_LIMITED', 'Producer request rate exceeded.', 429);
-      bucket.tokens--; buckets.set(producer.id, bucket);
+      consume(producer.id);
       return { actor: producer };
     }
     const c = credential(cookie(req, 'operator_session'), 'operator');
@@ -115,12 +117,26 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);
       }
       if (path.startsWith('/api/v1/display/')) throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);
+      if(path.startsWith('/api/v1/control/')){
+        const bearer=req.headers.authorization?.match(/^Bearer (\S+)$/)?.[1];ensure(bearer,'UNAUTHORIZED','A separate direct control bearer token is required.',401);
+        const controller=engine.controlCredential(tokenHash(bearer));consume(controller.id);
+        if(get&&path==='/api/v1/control/context')return send(res,engine.directContext(controller.id));
+        if(post&&path==='/api/v1/control/scene')return send(res,engine.directCommand(controller.id,'scene',await body(req)));
+        if(post&&path==='/api/v1/control/widgets')return send(res,engine.directCommand(controller.id,'widget',await body(req)));
+        throw new DomainError('NOT_FOUND','Control endpoint not found.',404);
+      }
       if (path.startsWith('/api/v1/')) {
         const auth = actor(req); authenticated = auth.actor;
         const isAdmin = path.startsWith('/api/v1/admin/');
         if (isAdmin) ensure(auth.actor.role === 'operator', 'FORBIDDEN', 'Operator permission is required.', 403);
-        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, canProposeLayouts:auth.actor.role==='operator'||auth.actor.canProposeLayouts===true, limits: LIMITS, leaseMs: engine.leaseMs });
-        if (get && (path === '/api/v1/overlays' || path === '/api/v1/admin/overlays')) return send(res,{config:engine.overlayConfig(),plugins:widgetCatalog()});
+        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, canProposeLayouts:auth.actor.role==='operator'||auth.actor.canProposeLayouts===true, sourcePolicies:engine.contentSources(), limits: LIMITS, leaseMs: engine.leaseMs });
+        if (get && (path === '/api/v1/overlays' || path === '/api/v1/admin/overlays')) return send(res,{config:engine.overlayConfig(),plugins:widgetCatalog(),sources:engine.contentSources()});
+        if(get&&path==='/api/v1/sources')return send(res,{sources:engine.contentSources()});
+        if(post&&path==='/api/v1/admin/source-policies'){const b=await body(req);fields(b,['expectedControlRevision','sourceId','policy']);return send(res,{sources:engine.setSourcePolicy(b)});}
+        if(get&&path==='/api/v1/admin/controllers')return send(res,{items:engine.controllers()});
+        if(post&&path==='/api/v1/admin/controllers'){const b=await body(req);fields(b,['expectedControlRevision','name','allowedSceneIds','widgets']);return send(res,engine.registerController(b),201);}
+        const controllerRevoke=path.match(/^\/api\/v1\/admin\/controllers\/([A-Za-z0-9_-]+)\/revoke$/);
+        if(post&&controllerRevoke){const b=await body(req);fields(b,['expectedControlRevision']);engine.revokeController(controllerRevoke[1],b);return send(res,{ok:true});}
         if(post&&path==='/api/v1/layout-proposals/validate')return send(res,engine.validateLayoutProposal(auth.actor,await body(req)));
         if(post&&path==='/api/v1/layout-proposals')return send(res,engine.proposeLayout(auth.actor,await body(req)));
         const layoutStatus=path.match(/^\/api\/v1\/layout-proposals\/([A-Za-z0-9_-]+)$/);
@@ -161,7 +177,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/logout') { const raw = cookie(req, 'operator_session'); if (raw) engine.store.delete(`auth:${tokenHash(raw)}`); res.setHeader('Set-Cookie', 'operator_session=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0'); return send(res, { ok: true }); }
         if (get && path === '/api/v1/admin/state') {
           const control = engine.control();
-          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').filter(o => !o.overlayId).map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), layoutProposals:engine.store.list<LayoutProposal>('layout-proposal:').filter(p=>p.status==='pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
+          return send(res, { control, sources:engine.contentSources(), controllers:engine.controllers(), sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').filter(o => !o.overlayId).map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), layoutProposals:engine.store.list<LayoutProposal>('layout-proposal:').filter(p=>p.status==='pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
         }
         if (get && path === '/api/v1/admin/control') return send(res, engine.control());
         if (post && path === '/api/v1/admin/control') { const b = await body(req); fields(b, ['expectedControlRevision','mode','activeSessionId','aiWritesEnabled','confirmRestore']); return send(res, engine.setControl(b)); }

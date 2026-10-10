@@ -2,8 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { Store } from '../src/server/store.ts';
 import { Engine } from '../src/domain/engine.ts';
 import type { Actor, ChangeSet, Operation, Session } from '../src/contracts/types.ts';
+import {CONTENT_SOURCES} from '../src/sources/registry.ts';
+// Existing automatic-publisher cases explicitly opt into source publication.
+export function allowAutomaticSources(store:Store){store.put('source-policies',Object.fromEntries(CONTENT_SOURCES.map(s=>[s.id,'apply_allowed'])));}
 export function setup(path = ':memory:') {
   const store = new Store(path), engine = new Engine(store);
+  allowAutomaticSources(store);
   const session = engine.createSession({ title: '설정 비교 실험', goal: '같은 조건에서 결과의 차이를 확인합니다', expectedControlRevision: 0 });
   engine.lifecycle(session.id, { action: 'start', expectedRevision: 0, expectedControlRevision: 0 });
   const { producer } = engine.producer({ name: 'Test producer', expectedControlRevision: 1, canAutoPublish: true, allowedSessions: [session.id], allowedOperations: ['update_session','set_now','set_pin','upsert_event','retract_event','upsert_work_item','retract_work_item'], allowedPaths: ['*'] });

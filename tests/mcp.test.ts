@@ -1,3 +1,4 @@
+import {allowAutomaticSources} from './helpers.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
@@ -13,6 +14,7 @@ import { change, now } from './helpers.ts';
 
 async function fixture(canAutoPublish = false, host = '127.0.0.1') {
   const store = new Store(':memory:'), engine = new Engine(store), adminToken = 'mcp-test-operator-token-long-enough';
+  allowAutomaticSources(store);
   const app = createHttp(engine, { adminToken, heartbeatMs: 100, producerRate: 100, producerBurst: 100 });
   await new Promise<void>(resolve => app.server.listen(0, host === '127.0.0.1' ? host : '0.0.0.0', resolve));
   const base = `http://${host}:${(app.server.address() as { port: number }).port}`;
@@ -30,6 +32,18 @@ async function fixture(canAutoPublish = false, host = '127.0.0.1') {
   return { store, engine, app, base, issued, session: engine.session(session.id), adminToken, connect, close: async () => { if (app.server.listening) await app.close(); store.close(); } };
 }
 const data = (result: CallToolResult) => result.structuredContent as any;
+
+test('MCP discovers source policies and cannot apply or inspect apply candidates for proposal-only sources',async()=>{
+  const x=await fixture(true),mcp=await x.connect();try{
+    x.engine.setSourcePolicy({expectedControlRevision:x.engine.control().controlRevision,sourceId:'now',policy:'proposal_only'});
+    assert.equal(data(await mcp.call('get_sources')).sources.find((s:any)=>s.id==='now').policy,'proposal_only');
+    const command=change(x.engine.session(x.session.id),[now('MCP reviewed source')]);
+    assert.equal(data(await mcp.call('apply',command)).error.code,'SOURCE_REVIEW_REQUIRED');
+    assert.equal(data(await mcp.call('validate',command)).error.code,'SOURCE_REVIEW_REQUIRED');
+    assert.equal(data(await mcp.call('render_preview',{sessionId:x.session.id,overlayId:'overlay-1920x1080',change:command})).error.code,'SOURCE_REVIEW_REQUIRED');
+    assert.equal(data(await mcp.call('propose',{...command,intent:'propose'})).outcome,'proposed');assert.equal(x.engine.session(x.session.id).now,null);
+  }finally{await mcp.client.close();await x.close();}
+});
 
 test('MCP layout tools require a grant, validate/propose without publishing, recover receipts and report decisions',async()=>{
   const x=await fixture(),mcp=await x.connect();try{
@@ -51,7 +65,7 @@ test('MCP stdio: discover content tools, validate/propose actual display wording
   const x = await fixture(), mcp = await x.connect();
   try {
     const tools = await mcp.client.listTools();
-    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','get_layout_proposal','get_layouts','heartbeat','propose','propose_layout','render_preview','validate','validate_layout']);
+    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','get_layout_proposal','get_layouts','get_sources','heartbeat','propose','propose_layout','render_preview','validate','validate_layout']);
     assert.equal(data(await mcp.call('get_layouts')).config.layouts.length,4);
     const proposedSchema = tools.tools.find(t => t.name === 'propose')!.inputSchema;
     assert.deepEqual((proposedSchema.properties as any).intent, { const: 'propose' });

@@ -1,3 +1,4 @@
+import {allowAutomaticSources} from './helpers.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -29,6 +30,7 @@ function operation(document: any, id: string) {
 }
 async function fixture() {
   const store = new Store(':memory:'), engine = new Engine(store), adminToken = 'openapi-private-operator-token-long-enough';
+  allowAutomaticSources(store);
   const app = createHttp(engine, {adminToken, heartbeatMs:100, producerRate:100, producerBurst:100});
   await new Promise<void>(resolve => app.server.listen(0,'0.0.0.0',resolve));
   const port = (app.server.address() as {port:number}).port, base = `http://127.0.0.2:${port}`;
@@ -85,6 +87,37 @@ test('OpenAPI widget colors accept RGB and RGBA lengths and reject incomplete va
   for(const color of ['#8BF','#8BF8','#88BBFF','#88BBFF88'])assert.ok(validate({...DEFAULT_SETTINGS,background:color,color}),JSON.stringify(validate.errors));
   assert.ok(validate({...DEFAULT_SETTINGS,background:'transparent',color:'#f000'}));
   for(const color of ['#8B','#8BF88','#88BBFF8','#88BBFF888','#GGG8'])assert.equal(validate({...DEFAULT_SETTINGS,background:color}),false);
+});
+
+test('OpenAPI source policies and separate controller operations validate live scoped requests and responses',async()=>{
+  const x=await fixture();try{
+    const call=async(path:string,method:'get'|'post',token:string,body?:object,status=200)=>{
+      const definition=spec.paths[path][method];
+      if(body)assertSchema(spec,definition.requestBody.content['application/json'].schema,body);
+      const response=await fetch(x.base+path,{method:method.toUpperCase(),headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+      const data=await response.json();assert.equal(response.status,status,JSON.stringify(data));
+      assertSchema(spec,definition.responses[String(status)].content['application/json'].schema,data);return data;
+    };
+    assert.equal((await call('/api/v1/sources','get',x.issued.token)).sources.length,6);
+    const policies=await call('/api/v1/admin/source-policies','post',x.adminToken,{expectedControlRevision:x.engine.control().controlRevision,sourceId:'now',policy:'proposal_only'});
+    assert.equal(policies.sources.find((source:any)=>source.id==='now').policy,'proposal_only');
+    await call('/api/v1/capabilities','get',x.issued.token);
+    const catalog=await call('/api/v1/overlays','get',x.issued.token);
+    assert.deepEqual(catalog.plugins.find((p:any)=>p.type==='away').directControl.settingsKeys,['message','detail','showDetails']);
+    const issued=await call('/api/v1/admin/controllers','post',x.adminToken,{name:'Spec scoped controller',expectedControlRevision:x.engine.control().controlRevision,allowedSceneIds:['break'],widgets:[{overlayId:'overlay-1920x1080',sceneId:'break',widgetId:'away'}]},201);
+    await call('/api/v1/admin/controllers','get',x.adminToken);
+    await call('/api/v1/admin/state','get',x.adminToken);
+    let context=await call('/api/v1/control/context','get',issued.token);
+    for(const path of ['/api/v1/control/scene','/api/v1/control/widgets']){
+      const definition=spec.paths[path].post;
+      assert.deepEqual(definition.security,[{controllerAuth:[]}]);
+      assertSchema(spec,definition.requestBody.content['application/json'].schema,definition.requestBody.content['application/json'].example);
+    }
+    const command={requestId:randomUUID(),expectedConfigRevision:context.configRevision,overlayId:'overlay-1920x1080',sceneId:'break',widgetId:'away',settings:{message:'Spec direct message',showDetails:false}};
+    assert.equal((await call('/api/v1/control/widgets','post',issued.token,command)).publication,'not_applicable');
+    context=await call('/api/v1/control/context','get',issued.token);
+    assert.equal((await call('/api/v1/control/scene','post',issued.token,{requestId:randomUUID(),expectedConfigRevision:context.configRevision,sceneId:'break'})).outcome,'applied');
+  }finally{await x.close();}
 });
 
 test('OpenAPI layout proposal operations validate real requests, receipts, status, preview and approval',async()=>{
