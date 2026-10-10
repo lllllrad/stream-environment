@@ -14,6 +14,8 @@ pnpm start
 
 Open [the control room](http://127.0.0.1:4310/admin). On first start, the server creates `.data/operator.key`. Copy its contents into the operator-key field. To supply your own credential, copy `.env.example` to `.env` and set `ADMIN_TOKEN` to a random value of at least 24 characters. Credentials, SQLite files, generated reports, and local configuration are ignored by Git.
 
+The server binds to `0.0.0.0:4310` by default. From another computer, use `http://<dashboard-computer-IP>:4310` and a registered producer token for AI access. Set the MCP adapter's `DASHBOARD_URL` to that address on the AI agent computer. `0.0.0.0` is a listen address, not a client URL. Set `BIND_ADDRESS=127.0.0.1` in `.env` for same-machine access only. See [network deployment](docs/operations.md#deployment-boundary) for DNS names and firewall setup.
+
 The initial app has no example content. Create a session, enter its public content, and use **Output settings** to copy a fixed public output URL (no login or key required). The operator UI and broadcast page are separate routes and bundles.
 
 | Output | Browser-source size | Purpose |
@@ -113,7 +115,7 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Boundaries
 
-The server binds to loopback only and rejects unconfigured Host/Origin values. Remote/cloud AI access needs a separately implemented HTTPS access configuration; registering a localhost address does not make it cloud-accessible. Media/links/QR, freeform layout editors, numeric progress, activity templates, and real work execution remain deferred. There are no runtime model calls or audio/video/transcript collection.
+The server listens on all IPv4 interfaces by default and accepts its receiving interface IP, localhost, or explicitly configured DNS authorities. Browser requests must have a matching Origin; no permissive CORS or forwarded-header trust is enabled. Direct HTTP access is intended for a trusted network; the server does not provide TLS or create a tunnel. Media/links/QR, freeform layout editors, numeric progress, activity templates, and real work execution remain deferred. There are no runtime model calls or audio/video/transcript collection.
 
 Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight-hour soak require separate operational validation. The [validation record](docs/verification.md) distinguishes executed checks from pending ones.
 

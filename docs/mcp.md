@@ -2,7 +2,7 @@
 
 The original requirements already cover **actual viewer-facing content**, not just tasks: sections 8–9 define content operations and proposal review, and section 10.2 specifies an optional MCP adapter. The follow-up prioritizes that adapter. Both HTTP and MCP can suggest session wording, current activity, recap, timeline events, notices and reported work. This integration does not generate content on its own or execute work.
 
-## Connect a local MCP client
+## Connect an MCP client
 
 1. Start the dashboard with `pnpm start` after `pnpm build`.
 2. In the operator's **Producers** page, register a producer for the intended session and content fields. Leave automatic publication off to require review. For activity summaries and notices, grant `/now`, `/session/recap`, `/pin` and `/events/*`. Grant `/session/title` and `/session/goal` only if the client needs to suggest those fields.
@@ -26,7 +26,9 @@ The original requirements already cover **actual viewer-facing content**, not ju
 
 Host configuration formats can vary; the executable, arguments and environment above define the transport. The script resolves contracts relative to its own path, so the host's working directory can differ. Use the direct Node command for protocol connections. `pnpm mcp` is a convenience launcher from this checkout and reads an optional `.env` file; do not run a build inside a stdio protocol session. Stdout carries only MCP messages, with sanitized startup diagnostics on stderr.
 
-The adapter accepts only a local HTTP origin (`127.0.0.1` or `localhost`). It connects to the existing running dashboard over authenticated HTTP and never opens SQLite separately. It refuses operator credentials before reading context. Revocation and changed grants are enforced by HTTP on every request. A cloud-only MCP host cannot reach this local stdio adapter; remote HTTPS transport remains separate work.
+Run the stdio adapter on the AI agent computer. When the dashboard runs on another computer, replace `DASHBOARD_URL` with its reachable address, for example `http://192.168.1.20:4310`. The dashboard binds to `0.0.0.0` by default; DNS names require an explicit `ALLOWED_HOSTS` entry on the dashboard server. See [network deployment](operations.md#deployment-boundary). Keep `127.0.0.1` for same-machine clients.
+
+The adapter accepts a configured HTTP or HTTPS origin without credentials, query, fragment or path. HTTPS requires an independently available HTTPS endpoint; the dashboard process itself serves HTTP. It connects to the existing dashboard over authenticated HTTP and never opens SQLite separately. It refuses operator credentials before reading context. Revocation and changed grants are enforced on every request. MCP transport remains local stdio on the agent computer; this does not expose a remote MCP server or make a private network reachable by a cloud-only host.
 
 The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelcontextprotocol.io/v2/). Its tool schemas reuse the repository's [ChangeSet JSON Schema](../contracts/change-set.schema.json) through the SDK's [JSON Schema adapter](https://ts.sdk.modelcontextprotocol.io/v2/advanced/schema-libraries); content operations and length rules are not duplicated in an MCP-only format.
 

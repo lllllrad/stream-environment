@@ -82,7 +82,13 @@ Ended sessions are retained locally until the operator purges them. Raw audio/vi
 
 ## Deployment boundary
 
-P0 listens only on `127.0.0.1`. It accepts the matching localhost/127.0.0.1 Host and Origin for the bound port, with no permissive CORS. It does not enable remote binding, tunnels, or proxy trust. External cloud clients need a separately implemented and validated HTTPS access configuration with explicit host/origin controls; a basic reverse proxy forwarding an external origin will be rejected by this build. Do not advertise localhost as a cloud-accessible endpoint.
+The server listens on `0.0.0.0` by default so AI agents on other computers can connect. Configure `BIND_ADDRESS` in `.env` to restrict it to a particular interface; `127.0.0.1` restores same-machine-only access. `PORT` defaults to `4310`. Restart the server after changing these settings.
+
+On the AI agent computer, set `DASHBOARD_URL=http://<dashboard-computer-IP>:4310` and provide its registered producer token. Use the dashboard computer's reachable LAN/VPN address, never `0.0.0.0` or the agent computer's localhost. The operating-system firewall must permit inbound TCP traffic on the configured port from the intended agent computers. Binding alone does not configure a firewall or router.
+
+IP-based access needs no extra host configuration: Host must match the receiving server interface address and port. `localhost` and `127.0.0.1` remain accepted. To use a DNS/computer name, add its exact authority to `ALLOWED_HOSTS`, for example `ALLOWED_HOSTS=stream-pc:4310,stream-pc.example:4310`. Wildcards are not supported. Browser Origin must match the request's HTTP host; foreign origins are rejected and no permissive CORS is enabled. Forwarded headers do not change these checks.
+
+Operator and producer authentication, cookie CSRF validation, field grants and rate limits apply across network connections. OBS projections remain anonymous. Direct HTTP carries credentials without TLS and is intended for a trusted network. This process does not terminate TLS, create tunnels, or configure internet-facing deployment.
 
 ## Production checks still requiring a person
 

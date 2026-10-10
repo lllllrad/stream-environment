@@ -13,13 +13,13 @@ class DashboardFailure extends Error {
   toJSON(): JsonObject { return this.body; }
 }
 function transportFailure(submission: boolean): DomainError {
-  return new DomainError(submission ? 'REQUEST_OUTCOME_UNKNOWN' : 'DASHBOARD_UNAVAILABLE', submission ? 'No valid response was received. A submission may have been saved; resend the exact command and requestId to recover its receipt.' : 'Dashboard is unavailable or returned an invalid response. Start the local server and check DASHBOARD_URL.', 503);
+  return new DomainError(submission ? 'REQUEST_OUTCOME_UNKNOWN' : 'DASHBOARD_UNAVAILABLE', submission ? 'No valid response was received. A submission may have been saved; resend the exact command and requestId to recover its receipt.' : 'Dashboard is unavailable or returned an invalid response. Check the server, network connection and DASHBOARD_URL.', 503);
 }
 
 export function dashboardUrl(raw: string): string {
   let url: URL;
-  try { url = new URL(raw); } catch { throw new DomainError('INVALID_CONFIGURATION', 'DASHBOARD_URL must be a local HTTP origin.'); }
-  ensure(url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash && url.pathname === '/', 'INVALID_CONFIGURATION', 'DASHBOARD_URL must be a local HTTP origin without credentials, query or path.');
+  try { url = new URL(raw); } catch { throw new DomainError('INVALID_CONFIGURATION', 'DASHBOARD_URL must be an HTTP or HTTPS origin.'); }
+  ensure(['http:', 'https:'].includes(url.protocol) && !['0.0.0.0', '[::]'].includes(url.hostname) && !url.username && !url.password && !url.search && !url.hash && url.pathname === '/', 'INVALID_CONFIGURATION', 'DASHBOARD_URL must be a reachable HTTP or HTTPS origin without credentials, query or path.');
   return url.origin;
 }
 

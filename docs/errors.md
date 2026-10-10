@@ -10,7 +10,7 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `ITEM_OWNER_CONFLICT` | 403 | Do not overwrite another producer's item without an explicit grant. |
 | `AI_WRITES_DISABLED` | 403 | Wait for the operator to enable producer writes. Human edits remain available. |
 | `CSRF_REJECTED` | 403 | Use the operator cookie's current CSRF token in `X-CSRF-Token`. |
-| `HOST_REJECTED`, `ORIGIN_REJECTED` | 403 | Use the configured local origin. Remote access is not enabled in P0. |
+| `HOST_REJECTED`, `ORIGIN_REJECTED` | 403 | Use the dashboard's receiving interface IP or a configured `ALLOWED_HOSTS` authority. Browser Origin must match the request host. |
 | `NOT_FOUND` | 404 | Check the session, output, event/work item, proposal or audit ID. |
 | `REVISION_CONFLICT`, `CONTROL_REVISION_CONFLICT` | 409 | Reread and reassess the intended content/control change. Never blindly bump a version. |
 | `FIELD_LOCKED` | 409 | Preserve the operator's value; optionally submit a new proposal. |

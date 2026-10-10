@@ -6,10 +6,11 @@ import { Engine } from '../src/domain/engine.ts';
 import { createHttp } from '../src/server/http.ts';
 import { change, now, event } from './helpers.ts';
 
-async function setupHttp(options: {producerRate?:number;producerBurst?:number} = {}) {
+async function setupHttp(options: {producerRate?:number;producerBurst?:number;allowedHosts?:string[];bindAddress?:string} = {}) {
   const store = new Store(':memory:'), engine = new Engine(store), token = 'test-operator-credential-long-enough';
-  const app = createHttp(engine, { adminToken: token, heartbeatMs: 100, producerRate: 100, producerBurst: 100, ...options });
-  await new Promise<void>(resolve => app.server.listen(0, '127.0.0.1', resolve));
+  const { bindAddress = '127.0.0.1', ...httpOptions } = options;
+  const app = createHttp(engine, { adminToken: token, heartbeatMs: 100, producerRate: 100, producerBurst: 100, ...httpOptions });
+  await new Promise<void>(resolve => app.server.listen(0, bindAddress, resolve));
   const port = (app.server.address() as {port:number}).port, base = `http://127.0.0.1:${port}`;
   const call = async (path: string, data?: any, credential = token, cookie?: string, csrf?: string) => {
     const res = await fetch(base + path, { method: data === undefined ? 'GET' : 'POST', headers: { ...(credential ? { Authorization: `Bearer ${credential}` } : {}), ...(data !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: data === undefined ? undefined : JSON.stringify(data) });
@@ -44,6 +45,46 @@ test('HTTP: operator login, CSRF, producer isolation, anonymous public outputs, 
     const hostStatus = await new Promise<number>(resolve => { const r = httpRequest(x.base + '/health/live', { headers: { Host: 'untrusted.example' } }, response => { response.resume(); resolve(response.statusCode!); }); r.end(); }); assert.equal(hostStatus, 403);
   } finally { await x.close(); }
 });
+test('HTTP: network interface and configured DNS hosts support authenticated producers while rejecting foreign origins and hosts', async () => {
+  const x = await setupHttp({ bindAddress: '0.0.0.0', allowedHosts: ['stream-pc:4310'] });
+  try {
+    assert.equal((x.app.server.address() as {address:string}).address, '0.0.0.0');
+    const base = x.base.replace('127.0.0.1', '127.0.0.2');
+    const request = async (path: string, headers: Record<string,string> = {}, data?: object) => {
+      const response = await fetch(base + path, { method: data ? 'POST' : 'GET', headers: { ...headers, ...(data ? {'Content-Type':'application/json'} : {}) }, body: data ? JSON.stringify(data) : undefined });
+      return { status: response.status, body: await response.json(), headers: response.headers };
+    };
+    // fetch normalizes Host; use the native client to exercise actual Host headers.
+    const hostRequest = (headers: Record<string,string>) => new Promise<{status:number;body:any}>((resolve, reject) => {
+      const req = httpRequest(base + '/health/live', {headers}, async response => {
+        try {
+          const parts: Buffer[] = [];
+          for await (const part of response) parts.push(part);
+          resolve({status:response.statusCode!, body:JSON.parse(Buffer.concat(parts).toString('utf8'))});
+        } catch (error) { reject(error); }
+      });
+      req.on('error', reject); req.end();
+    });
+    assert.equal((await request('/health/live', {Origin:base})).status, 200);
+    assert.equal((await request('/api/v1/capabilities')).status, 401);
+    assert.equal((await request('/api/v1/capabilities', {Authorization:`Bearer ${x.publisher.token}`})).body.role, 'producer');
+    const changeRequest = change(x.session, [now('Network producer content')]);
+    assert.equal((await request(`/api/v1/sessions/${x.session.id}/changes`, {Authorization:`Bearer ${x.publisher.token}`}, changeRequest)).body.outcome, 'applied');
+    const snapshot = await request('/api/v1/display/main-full/snapshot');
+    assert.equal(snapshot.status, 200); assert.equal(snapshot.body.content.now.title, 'Network producer content');
+    assert.equal(snapshot.headers.get('access-control-allow-origin'), null);
+    assert.equal((await hostRequest({Host:'stream-pc:4310', Origin:'http://stream-pc:4310'})).status, 200);
+    assert.equal((await hostRequest({Host:'unconfigured.example:4310'})).body.error.code, 'HOST_REJECTED');
+    assert.equal((await request('/health/live', {Origin:x.base})).body.error.code, 'ORIGIN_REJECTED');
+    assert.equal((await request('/health/live', {Origin:'https://untrusted.example'})).body.error.code, 'ORIGIN_REJECTED');
+    assert.equal((await hostRequest({Host:'untrusted.example', 'X-Forwarded-Host':new URL(base).host})).body.error.code, 'HOST_REJECTED');
+    const login = await request('/api/v1/admin/login', {Origin:base}, {token:x.token});
+    assert.equal(login.status, 200);
+    const cookie = login.headers.get('set-cookie')!.split(';')[0];
+    assert.equal((await request('/api/v1/admin/control', {Cookie:cookie, Origin:base}, {mode:'hold', expectedControlRevision:x.engine.control().controlRevision})).body.error.code, 'CSRF_REJECTED');
+  } finally { await x.close(); }
+});
+
 test('HTTP: public snapshot and SSE contain no proposed content; reconnect sends latest and emergency hide clears the stream', async () => {
   const x = await setupHttp();
   try {

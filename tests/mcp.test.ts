@@ -9,11 +9,11 @@ import { createHttp } from '../src/server/http.ts';
 import { createDashboardMcp, dashboardUrl } from '../src/integrations/mcp.ts';
 import { change, now } from './helpers.ts';
 
-async function fixture(canAutoPublish = false) {
+async function fixture(canAutoPublish = false, host = '127.0.0.1') {
   const store = new Store(':memory:'), engine = new Engine(store), adminToken = 'mcp-test-operator-token-long-enough';
   const app = createHttp(engine, { adminToken, heartbeatMs: 100, producerRate: 100, producerBurst: 100 });
-  await new Promise<void>(resolve => app.server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
+  await new Promise<void>(resolve => app.server.listen(0, host === '127.0.0.1' ? host : '0.0.0.0', resolve));
+  const base = `http://${host}:${(app.server.address() as { port: number }).port}`;
   const session = engine.createSession({ title: 'Content proposal test', goal: 'Review external display wording', expectedControlRevision: 0 });
   engine.lifecycle(session.id, { action: 'start', expectedRevision: 0, expectedControlRevision: 0 });
   const issued = engine.producer({ name: 'External content system', canAutoPublish, allowedSessions: [session.id], allowedOperations: ['set_now','update_session','set_pin','upsert_event'], allowedPaths: ['/now','/session/recap','/pin','/events/*'], expectedControlRevision: 1 });
@@ -101,10 +101,24 @@ test('MCP stdio: operator credentials cannot expose private context, no active s
   } finally { await operatorClient.client.close(); await producerClient.client.close(); await x.close(); }
 });
 
-test('MCP adapter accepts only configured loopback origins and requires a token', () => {
+test('MCP adapter accepts configured network HTTP/HTTPS origins and requires a token', () => {
   assert.equal(dashboardUrl('http://localhost:4310/'), 'http://localhost:4310');
-  for (const url of ['https://example.com', 'http://127.0.0.1:4310/path', 'http://secret@localhost:4310', 'http://localhost:4310?token=secret', 'http://localhost:4310#secret', 'invalid']) assert.throws(() => dashboardUrl(url));
+  assert.equal(dashboardUrl('http://192.168.1.20:4310/'), 'http://192.168.1.20:4310');
+  assert.equal(dashboardUrl('https://stream-pc.example/'), 'https://stream-pc.example');
+  for (const url of ['file:///dashboard', 'ftp://stream-pc', 'http://0.0.0.0:4310', 'http://[::]:4310', 'http://127.0.0.1:4310/path', 'http://secret@localhost:4310', 'http://localhost:4310?token=secret', 'http://localhost:4310#secret', 'invalid']) assert.throws(() => dashboardUrl(url));
   assert.throws(() => createDashboardMcp({ url: 'http://127.0.0.1:4310', token: '' }));
+});
+
+test('MCP stdio: a configured network address can read context and propose display content', async () => {
+  const x = await fixture(false, '127.0.0.2'), mcp = await x.connect();
+  try {
+    assert.equal(data(await mcp.call('get_capabilities')).role, 'producer');
+    assert.equal(data(await mcp.call('get_context')).session.id, x.session.id);
+    const result = await mcp.call('propose', change(x.session, [now('Suggested from network MCP')], { intent: 'propose' }));
+    assert.ok(!result.isError); assert.equal(data(result).outcome, 'proposed');
+    assert.equal(x.store.list('proposal:').length, 1);
+    assert.ok(!JSON.stringify(x.engine.output('main-full').snapshot).includes('Suggested from network MCP'));
+  } finally { await mcp.client.close(); await x.close(); }
 });
 
 test('MCP stdio: transport failure distinguishes unavailable reads from uncertain submissions without retries', async () => {

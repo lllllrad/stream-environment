@@ -8,7 +8,7 @@ The supplied requirements describe the product, not instructions for the develop
 | Database | JSON documents in SQLite for sessions/control/output, with separate indexed receipt and audit tables. Every command and its output snapshots commit in one transaction. |
 | Transport | HTTP commands and complete public snapshots over SSE. Reconnect always starts from the latest snapshot. |
 | Defaults | Three independent outputs: `main-full`, `main-side`, and `main-lower`. Empty initial state; demo content is explicitly opt-in. |
-| Deployment | Loopback binding only in P0. Remote deployment requires a separately reviewed HTTPS reverse proxy, configured host/origin allowlists, and access controls; no tunnel is created. |
+| Deployment | Bind to `0.0.0.0` by default for agents on other computers; `BIND_ADDRESS` can restrict interfaces. Host must match the receiving interface IP, localhost, or explicit `ALLOWED_HOSTS`; browser Origin must match Host. Authentication remains enforced, with no CORS wildcard, proxy trust, TLS listener or tunnel. |
 | Authentication | Operator bearer credential exchanged for an HttpOnly cookie plus CSRF token; producer bearer tokens; anonymous read-only display pages, snapshots and SSE per the user's follow-up request. Only operator/producer token hashes are stored in SQLite. |
 | Dependencies | Exact package versions and a pnpm lockfile; no runtime LLM calls, external fonts, or remotely loaded assets. |
 | P1 | Links/images/QR, numeric progress, activity templates, arbitrary layouts, and real work execution are deferred as specified. |

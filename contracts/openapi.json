@@ -8,7 +8,7 @@
   "servers": [
     {
       "url": "http://127.0.0.1:4310",
-      "description": "Loopback default"
+      "description": "Same-machine access; binds to 0.0.0.0 by default. Replace with the dashboard computer IP for network clients."
     }
   ],
   "paths": {

@@ -10,7 +10,7 @@ import { sessionExport, exportMarkdown } from '../domain/export.ts';
 
 type Credential = { role: 'operator'; tokenHash: string; csrf?: string; expiresAt: number };
 type Client = { response: ServerResponse; screenId: string };
-export type HttpOptions = { adminToken: string; heartbeatMs?: number; producerRate?: number; producerBurst?: number; webDir?: string; port?: number };
+export type HttpOptions = { adminToken: string; allowedHosts?: string[]; heartbeatMs?: number; producerRate?: number; producerBurst?: number; webDir?: string; port?: number };
 const key = () => randomBytes(32).toString('base64url');
 function equal(a: string, b: string): boolean { return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b)); }
 function cookie(req: IncomingMessage, name: string): string | undefined { return req.headers.cookie?.split(';').map(p => p.trim().split('=')).find(([k]) => k === name)?.[1]; }
@@ -76,9 +76,13 @@ export function createHttp(engine: Engine, options: HttpOptions) {
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'; form-action 'self'");
     try {
       const address = server.address(); const port = typeof address === 'object' && address ? address.port : options.port ?? 4310;
-      const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
-      ensure(hosts.includes(req.headers.host ?? ''), 'HOST_REJECTED', 'Host is not allowed for this local server.', 403);
-      if (req.headers.origin) ensure(hosts.map(h => `http://${h}`).includes(req.headers.origin), 'ORIGIN_REJECTED', 'Origin is not allowed.', 403);
+      // The destination interface is server-owned; never infer trust from client/forwarded headers.
+      const localAddress = req.socket.localAddress?.replace(/^::ffff:/, '');
+      const localHost = localAddress?.includes(':') ? `[${localAddress}]` : localAddress;
+      const hosts = [`127.0.0.1:${port}`, `localhost:${port}`, ...(localHost ? [`${localHost}:${port}`] : []), ...(options.allowedHosts ?? [])];
+      const host = (req.headers.host ?? '').toLowerCase();
+      ensure(hosts.includes(host), 'HOST_REJECTED', 'Host must match the server address or an explicitly allowed host.', 403);
+      if (req.headers.origin) ensure(req.headers.origin === `http://${host}`, 'ORIGIN_REJECTED', 'Origin must match the request host.', 403);
       const url = new URL(req.url ?? '/', `http://${req.headers.host}`), path = url.pathname;
       const post = req.method === 'POST', get = req.method === 'GET';
       if (get && path === '/health/live') return send(res, { ok: true });

@@ -16,7 +16,7 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | --- | --- |
 | Dependency installation and locked build | Passed; exact dependency versions recorded in pnpm-lock.yaml |
 | TypeScript | Passed, `pnpm typecheck` / equivalent direct TypeScript invocation |
-| Domain, contract, HTTP, lease, backup, MCP and export tests | 39 tests passed |
+| Domain, contract, HTTP, lease, backup, MCP, export and startup tests | 42 tests passed |
 | Browser workflows and visual regression | 40 tests passed; seven interaction/accessibility cases (including external MCP review) and 33 screenshot comparisons |
 | Source-resolution screenshots | Three presets × ten fixtures: empty, minimal, normal, maximum, maximum work, crowded medium lengths, no optional widgets, tentative event, reported work failure, hidden |
 | 720p visual composition | Three scaled preset screenshots captured and inspected in a browser, separately from OBS |
@@ -26,6 +26,7 @@ Recorded on 2026-10-10 (Asia/Seoul). This distinguishes application checks from 
 | Contrast | Broadcast ink/muted/accent colors exceed 4.5:1 against the configured background; this is not a WCAG certification |
 | Account-free demo | Creation, public update, receipt replay, conflicting ID rejection, server lock rejection, proposal outcome, hold, withdrawal, emergency hide, explicit end passed on isolated port 4312 |
 | Online backup | SQLite backup and integrity check passed while the isolated server was running; automated restore verifies hidden state, locks, snapshots and receipt replay |
+| Network access | Default `0.0.0.0` startup, explicit loopback override, interface/DNS Host handling, matching Origin, CSRF, authenticated network publishing and network-address MCP proposals passed. The restarted server responded through LAN and Tailscale interface addresses from this host; protected APIs returned 401 without a token. A second computer's firewall/routing path was not tested. |
 | Documentation language | All Markdown documentation scanned; no Korean prose in repository documents |
 
 Native preset screenshots are committed in `tests/e2e/dashboard.spec.ts-snapshots`. Generated HTML/JS/CSS, runtime databases, reports and operator screenshots are ignored. No credentials or real activity records are included in Git.
