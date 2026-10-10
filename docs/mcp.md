@@ -38,6 +38,8 @@ The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelco
 | --- | --- | --- |
 | `get_capabilities` | `{}` | Producer role, field/operation grants, publication grant and text limits |
 | `get_context` | `{}` or `{ "sessionId": "session_..." }` | `{ "session": <scope-filtered context> }`, or `session: null` without an active session |
+| `get_layouts` | `{}` | Fixed overlay resolutions, scenes, complete layout geometry/order and widget settings; no session text |
+| `render_preview` | `{ "overlayId": "overlay-1920x1080", "sceneId": "live", "change": <optional ChangeSet>, "includeImage": false }` | Read-only exact-size browser measurement, scoped visible text/ranges and optional MCP PNG image; optional sessionId defaults to the active session |
 | `validate` | Full ChangeSet with either intent | Side-effect-free before/after comparison; no revision reservation |
 | `propose` | Full ChangeSet with `intent: "propose"` | Private review item and receipt; no display-content or public revision change |
 | `apply` | Full ChangeSet with `intent: "apply"` | Public update only when all server permissions and publication conditions hold |
@@ -46,6 +48,8 @@ The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelco
 Successful calls return both JSON text and `structuredContent`. Dashboard failures set `isError: true` and preserve the HTTP error's code, paths, current revision, retryability and recovery advice. SDK input-shape failures are MCP tool errors before HTTP submission. The tool name enforces the corresponding intent; no silent conversion between `apply` and `propose` occurs. Operator lifecycle, approval, locks, credentials, audit and output controls are not MCP tools.
 
 ## Suggest display content
+
+Before proposing layout-sensitive wording, call `get_layouts` and `render_preview` with a complete candidate ChangeSet. Inspect the visible prefix, clipping, overlaps and inspected revisions; revise wording before submitting a separate proposal. `includeImage: true` adds a PNG image content block. Rendering never submits the candidate. See [visibility semantics and browser setup](overlays.md#agent-inspection-over-http-and-mcp).
 
 Read capabilities, then context. Submit a ChangeSet built from the observed context revision; the [content proposal example](../examples/content-proposal.json) demonstrates current activity, a session recap, a viewer notice and a timeline event. Replace its session ID, base revision, timestamps, request ID and content with actual observations. This is synthetic example wording, not evidence of real activity.
 

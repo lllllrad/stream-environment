@@ -1,6 +1,6 @@
 # FRAME — Broadcast Activity Dashboard
 
-A local activity dashboard for viewers who join mid-session. External clients submit short, structured display content over HTTP or local MCP; the operator decides what can be published. Three independent browser outputs receive complete public snapshots over SSE.
+A local activity dashboard for viewers who join mid-session. External clients submit structured display content over HTTP or local MCP; the operator decides what can be published. Fixed-resolution whole-canvas overlays compose widgets in application scenes and receive public snapshots over SSE. Three legacy preset outputs remain available.
 
 ## Quick start
 
@@ -16,10 +16,12 @@ Open [the control room](http://127.0.0.1:4310/admin). On first start, the server
 
 The server binds to `0.0.0.0:4310` by default. From another computer, use `http://<dashboard-computer-IP>:4310` and a registered producer token for AI access. Set the MCP adapter's `DASHBOARD_URL` to that address on the AI agent computer. `0.0.0.0` is a listen address, not a client URL. Set `BIND_ADDRESS=127.0.0.1` in `.env` for same-machine access only. See [network deployment](docs/operations.md#deployment-boundary) for DNS names and firewall setup.
 
-The initial app has no example content. Create a session, enter its public content, and use **Output settings** to copy a fixed public output URL (no login or key required). The operator UI and broadcast page are separate routes and bundles.
+The initial app has no example session content. Create a session, enter its public content, and use **Overlay editor** to arrange widgets and copy a fixed public output URL (no login or key required). The operator UI and broadcast page are separate routes and bundles. See the [overlay editor, agent visibility and widget extension guide](docs/overlays.md).
 
 | Output | Browser-source size | Purpose |
 | --- | --- | --- |
+| `overlay-1920x1080` | 1920 × 1080 | Full transparent canvas, scene-specific widget placement |
+| `overlay-1280x720` | 1280 × 720 | Full transparent canvas with its own layouts |
 | `main-full` | 1920 × 1080 | Explanations, breaks, and transitions; opaque background |
 | `main-side` | 480 × 1080 | Alongside main content; transparent outside its panel |
 | `main-lower` | 1920 × 220 | Brief activity bar; transparent outside its panel |
@@ -59,6 +61,8 @@ just run              # Build and start the dashboard
 ## What is implemented
 
 - Session creation, start, pause, resume, and end; six kinds of broadcast information.
+- Fixed-resolution overlays, complete overlay/scene layout matrix, drag/resize and keyboard editing, widget visibility/stacking/settings, reviewed layout saves, Away status plugin and trusted build-time widget registration.
+- Private exact-size browser inspection over HTTP/MCP: actual visible Unicode ranges, font sizes, rectangles, clipping, occlusion and optional PNG, with producer field scopes preserved.
 - Manual edits with persistent server-enforced field locks, explicit unlock, event/work correction and withdrawal, pinned notice expiry, and work selection.
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
 - Per-producer session/operation/field grants, proposal-only clients, review comparisons and rendered proposal previews, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
@@ -66,7 +70,7 @@ just run              # Build and start the dashboard
 - Anonymous read-only outputs, latest-state SSE reconnect, bounded content leases, plain-text rendering, request limits, and producer rate limits.
 - Field-wise undo, full-session sensitive-content scrubbing, consistent backups, operator-only JSON/Markdown session exports, synthetic producers, OpenAPI/JSON Schema contracts, and automated tests.
 
-Long content uses a compact preset while retaining readable font sizes. Auxiliary content is capped or omitted on the server, and longer lines use ellipses. One notice or work item occupies the auxiliary slot; an explicit work selection overrides the notice. See [decisions](docs/decisions.md).
+Overlay widget instances independently control clipping, ellipsis, shrinking or scrolling and plugin-specific detail/item settings. Legacy preset content uses the original compact layout and auxiliary slot rules. See [decisions](docs/decisions.md).
 
 ## Development and verification
 
@@ -117,12 +121,12 @@ AI agents can fetch the single-file OpenAPI 3.1 specification at `http://<dashbo
 
 ## Boundaries
 
-The server listens on all IPv4 interfaces by default and accepts its receiving interface IP, localhost, or explicitly configured DNS authorities. Browser requests must have a matching Origin; no permissive CORS or forwarded-header trust is enabled. Direct HTTP access is intended for a trusted network; the server does not provide TLS or create a tunnel. Media/links/QR, freeform layout editors, numeric progress, activity templates, and real work execution remain deferred. There are no runtime model calls or audio/video/transcript collection.
+The server listens on all IPv4 interfaces by default and accepts its receiving interface IP, localhost, or explicitly configured DNS authorities. Browser requests must have a matching Origin; no permissive CORS or forwarded-header trust is enabled. Direct HTTP access is intended for a trusted network; the server does not provide TLS or create a tunnel. Media/links/QR, numeric progress, activity templates, runtime plugin uploads and real work execution remain deferred. There are no runtime model calls or audio/video/transcript collection. Server-side render inspection requires an installed Chromium browser (Edge on Windows by default); see [browser configuration](docs/overlays.md#browser-runtime).
 
 Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight-hour soak require separate operational validation. The [validation record](docs/verification.md) distinguishes executed checks from pending ones.
 
 ## External content proposals with MCP
 
-Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_context`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
+Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_context`, `get_layouts`, `render_preview`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
 
 The requirements already cover current activity, recap, events, notices and session wording proposals (sections 8–9), independently of reported work items. The optional adapter from section 10.2 is now implemented. Operator approval controls publication; public OBS pages require no login.

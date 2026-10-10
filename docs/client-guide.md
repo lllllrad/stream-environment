@@ -116,4 +116,6 @@ Keep tokens out of URLs, logs, frontend bundles, and public text. `sourceRefs` a
 
 ## Content suggestions are not limited to work items
 
+Agents can discover fixed overlay layouts through authenticated `GET /api/v1/overlays` (`getLayouts`) and inspect current/candidate content with `POST /api/v1/sessions/{id}/render-preview` (`renderPreview`). Include an overlay ID, optional scene ID, optional complete ChangeSet and `includeImage`. The private response reports actual browser-visible Unicode ranges, clipping, rectangles and inspected revisions; it never submits or publishes the candidate. See [examples and visibility semantics](overlays.md#agent-inspection-over-http-and-mcp). MCP exposes the same workflow as `get_layouts` and `render_preview`.
+
 The original requirements (sections 8–9) explicitly include proposed viewer-facing wording. Use `set_now` for current activity, `update_session.fields.recap` for accumulated context, `upsert_event` for reported topics/decisions/results, `set_pin` for viewer notices, and scoped session title/goal updates where granted. `upsert_work_item` is just one optional content type. See the [multi-field content proposal](../examples/content-proposal.json). A producer with automatic publication disabled can still submit these actual content proposals for operator review.

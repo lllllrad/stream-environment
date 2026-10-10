@@ -10,6 +10,8 @@ Enter the current activity, recap, and optional public items. Manual edits creat
 
 ## Add an OBS browser source
 
+For new compositions, use **Overlay editor** to manage whole-canvas transparent overlays, initially 1920 × 1080 and 1280 × 720. Arrange widgets once per application scene and resolution; copy `/display/overlay-1920x1080` or `/display/overlay-1280x720` into one OBS Browser Source at `(0, 0)` with matching dimensions. Application scenes switch every resolution together and remain independent of OBS scenes and session status. See the [complete editing, review and agent-inspection guide](overlays.md). The following table describes the compatible legacy presets.
+
 In **Output settings**, copy the fixed public URL for a preset into a new OBS Browser Source and enter the exact viewport. No login, output key, or output cookie is required:
 
 | Preset | Width | Height | Background |

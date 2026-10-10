@@ -32,6 +32,12 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `INVALID_PATH`, `INVALID_CURSOR` | 422 | Use a permitted field path or the returned nonnegative cursor. |
 | `CONTENT_TYPE_REQUIRED`, `INVALID_JSON`, `BODY_TOO_LARGE` | 422 | Send an application/json object no larger than 64 KiB. |
 | `RATE_LIMITED` | 429 | Back off within the configured producer quota; avoid unnecessary repeated context reads. |
+| `OVERLAY_REVISION_CONFLICT` | 409 | Reload the overlay configuration and reconcile the draft before saving. |
+| `INVALID_LAYOUT`, `INVALID_OVERLAY`, `UNKNOWN_WIDGET` | 422 | Use installed widget types, validated settings and integer rectangles inside a supported canvas. |
+| `OVERLAY_EXISTS`, `SCENE_EXISTS` | 422 | Choose a unique resolution/name and stay within configuration limits. |
+| `PREVIEW_REPLAY` | 409 | Inspect a new candidate ID; this request already has a saved receipt. |
+| `RENDER_BUSY` | 429 | At most two inspections run concurrently; retry shortly. |
+| `RENDER_UNAVAILABLE` | 503 | Build the app and configure an installed Chromium browser for server-side inspection. |
 | `SERVICE_UNAVAILABLE` | 503 | Check `/health/ready` and storage. Retry the same request ID/body for an uncertain committed result. |
 
 Only 429/503 responses advertise `retryable: true`. A rejected apply never partially applies, silently changes into a proposal, removes a lock, or weakens disclosure rules.
