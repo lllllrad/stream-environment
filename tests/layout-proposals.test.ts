@@ -17,6 +17,20 @@ function fixture() {
 }
 const code=(expected:string)=>(error:any)=>error.code===expected;
 
+test('agents can propose only a z-index change against legacy widgets and review reports that layer',()=>{
+  const x=fixture();try{
+    const legacy=x.engine.overlayConfig();legacy.layouts[0].widgets.forEach(w=>{delete w.zIndex;});x.store.put('overlays',legacy);
+    const command=x.command();command.widgets=structuredClone(legacy.layouts[0].widgets);command.widgets[0].zIndex=8;
+    const validation=x.engine.validateLayoutProposal(x.producer,command);assert.ok('changedPaths' in validation);
+    assert.deepEqual(validation.changedPaths,[`/layouts/${command.overlayId}/live/widgets/${command.widgets[0].id}/zIndex`]);
+    const receipt=x.engine.proposeLayout(x.producer,command),preview=x.engine.layoutProposalPreview(receipt.proposalId);
+    assert.equal(preview.afterWidgets[0].zIndex,8);assert.equal(preview.after.overlay!.widgets[0].zIndex,8);
+    x.engine.layoutDecision(receipt.proposalId,x.decision(receipt.proposalId));assert.equal(x.engine.output(command.overlayId).snapshot.overlay!.widgets[0].zIndex,8);
+    const unchanged=x.command();unchanged.widgets=structuredClone(x.engine.overlayConfig().layouts[0].widgets);delete unchanged.widgets[1].zIndex;
+    assert.throws(()=>x.engine.validateLayoutProposal(x.producer,unchanged),code('NO_LAYOUT_CHANGE'));
+  }finally{x.store.close();}
+});
+
 test('layout proposals validate without writes, remain private, persist, replay receipts and expose only the author status',()=>{
   const x=fixture();try{
     const command=x.command(),before={config:x.engine.overlayConfig(),output:x.engine.output(command.overlayId),session:x.engine.session(x.session.id)};

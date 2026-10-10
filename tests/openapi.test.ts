@@ -73,6 +73,13 @@ test('OpenAPI embedded schemas validate both request examples and enforce origin
   assertSchema(spec,{$ref:'#/components/schemas/PublicSnapshot'},{screenId:'main-full',preset:'full',publicRevision:0,sessionId:null,mode:'hidden',leaseMs:30000,publishedAt:new Date().toISOString(),content:null});
 });
 
+test('OpenAPI z-index accepts legacy omission and bounded integer layers',()=>{
+  const validate=validator(spec,spec.components.schemas.WidgetInstance);
+  const widget={id:'now',type:'now',x:0,y:0,width:240,height:120,visible:true,settings:{...DEFAULT_SETTINGS}};
+  for(const value of [widget,{...widget,zIndex:0},{...widget,zIndex:10000}])assert.ok(validate(value),JSON.stringify(validate.errors));
+  for(const zIndex of [-1,10001,1.5,null,'2'])assert.equal(validate({...widget,zIndex}),false);
+});
+
 test('OpenAPI widget colors accept RGB and RGBA lengths and reject incomplete values',()=>{
   const validate=validator(spec,spec.components.schemas.WidgetInstance.properties.settings);
   for(const color of ['#8BF','#8BF8','#88BBFF','#88BBFF88'])assert.ok(validate({...DEFAULT_SETTINGS,background:color,color}),JSON.stringify(validate.errors));

@@ -196,6 +196,29 @@ test('layout undo restores widget settings, visibility, order and removed or add
   await page.getByRole('button',{name:'수정 취소 / 다시 읽기',exact:true}).click();await expect(undo).toBeDisabled();await expect(redo).toBeDisabled();await expect(selected).not.toHaveValue(added);await expect(page.getByRole('button',{name:`위젯 ${added}`,exact:true})).toHaveCount(0);
 });
 
+test('z-index controls broadcast stacking, measured occlusion, editor handles and undo/save',async({page,request,context})=>{
+  await seed(request,'normal');const original=await api(request,'/admin/overlays'),layout=original.config.layouts.find((l:any)=>l.overlayId==='overlay-1920x1080'&&l.sceneId==='live'),widgets=structuredClone(layout.widgets);
+  for(const w of widgets){w.visible=['now','away'].includes(w.type);w.zIndex=w.type==='now'?200:w.type==='away'?10:0;if(w.visible)Object.assign(w,{x:24,y:24,width:500,height:240});}
+  await api(request,'/admin/layouts',{expectedRevision:original.config.revision,overlayId:layout.overlayId,sceneId:layout.sceneId,widgets});
+  const display=await context.newPage();
+  try{
+    await login(page,false);const z=page.getByLabel('위젯 z-index'),undo=page.getByRole('button',{name:'실행 취소',exact:true}),redo=page.getByRole('button',{name:'다시 실행',exact:true});
+    await expect(z).toHaveValue('200');await z.fill('10000');await undo.click();await expect(z).toHaveValue('200');await redo.click();await expect(z).toHaveValue('10000');
+    await expect(page.locator('.overlay-editor-stage [data-widget="now"]')).toHaveCSS('z-index','10000');
+    const handle=page.getByRole('button',{name:'위젯 now',exact:true});await expect(handle).toHaveCSS('z-index','10001');
+    const box=(await handle.boundingBox())!;expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('.widget-handle')?.getAttribute('aria-label'),{x:box.x+box.width/2,y:box.y+box.height/2})).toBe('위젯 now');
+    await page.getByRole('button',{name:'뒤로',exact:true}).click();await expect(z).toHaveValue('10');await undo.click();await expect(z).toHaveValue('10000');
+    const review=page.getByRole('button',{name:'저장 전 검토',exact:true});await expect(review).toBeEnabled();await review.click();await page.getByRole('button',{name:'검토한 레이아웃 저장',exact:true}).click();
+    await expect(page.getByRole('status')).toContainText('레이아웃을 저장했습니다');await display.goto(`/display/${layout.overlayId}`);
+    await expect(display.locator('[data-widget="now"]')).toHaveCSS('z-index','10000');
+    const top=()=>display.evaluate(()=>document.elementFromPoint(60,60)?.closest('[data-widget]')?.getAttribute('data-widget'));expect(await top()).toBe('now');
+    const visible=await api(request,`/sessions/${(await api(request,'/sessions/current')).session.id}/render-preview`,{overlayId:layout.overlayId});expect(visible.report.widgets.find((w:any)=>w.id==='now').fields[0].visibleCodePoints).toBeGreaterThan(0);
+    await z.fill('0');await expect(review).toBeEnabled();await review.click();await page.getByRole('button',{name:'검토한 레이아웃 저장',exact:true}).click();await expect(display.locator('[data-widget="now"]')).toHaveCSS('z-index','0');expect(await top()).toBe('away');
+    const hidden=await api(request,`/sessions/${(await api(request,'/sessions/current')).session.id}/render-preview`,{overlayId:layout.overlayId});expect(hidden.report.widgets.find((w:any)=>w.id==='now').fields[0].visibleCodePoints).toBe(0);
+    await page.locator('.widget-inspector').evaluate(el=>el.scrollTo({top:0}));await page.screenshot({path:'artifacts/widget-z-index.png',fullPage:true});
+  }finally{await display.close();const latest=await api(request,'/admin/overlays');await api(request,'/admin/layouts',{expectedRevision:latest.config.revision,overlayId:layout.overlayId,sceneId:layout.sceneId,widgets:layout.widgets});}
+});
+
 test('overlay editor drags, resizes, reviews and persists widget geometry and adds complete scene layouts',async({page,request})=>{
   const fixture=await seed(request,'normal');await login(page);await page.getByRole('button',{name:'오버레이 편집',exact:true}).click();
   const handle=page.getByRole('button',{name:'위젯 now',exact:true});await expect(handle).toBeVisible();const box=(await handle.boundingBox())!,initialX=Number(await page.getByLabel('위젯 x',{exact:true}).inputValue());

@@ -127,6 +127,13 @@
                 "minimum": 32,
                 "maximum": 2160
               },
+              "zIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000,
+                "default": 0,
+                "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+              },
               "visible": {
                 "type": "boolean"
               },

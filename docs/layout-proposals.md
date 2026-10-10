@@ -12,7 +12,7 @@ Layout proposals do not need an active session. Rendering content in a candidate
 
 ## Build and inspect a proposal
 
-Copy the target layout's full `widgets` array and modify the intended instances. `baseRevision` is that layout's revision, **not** `config.revision` or a session revision. Widget IDs are layout-local, array order is back-to-front, and omitted widgets are removed. To add a widget, use an installed plugin type with a unique ID and complete validated settings. At most 32 widgets fit one layout; rectangles must remain inside its fixed canvas. Normal color, text and plugin validation applies.
+Copy the target layout's full `widgets` array and modify the intended instances. `baseRevision` is that layout's revision, **not** `config.revision` or a session revision. Widget IDs are layout-local; higher `zIndex` renders in front, equal values use back-to-front array order, and omitted widgets are removed. The layer is an integer from 0 to 10000; omitted `zIndex` defaults to zero for existing clients. To add a widget, use an installed plugin type with a unique ID and complete validated settings. At most 32 widgets fit one layout; rectangles must remain inside its fixed canvas. Normal color, text and plugin validation applies.
 
 The [LayoutChange schema](../contracts/layout-change.schema.json) defines the exact request, also embedded in the public [OpenAPI specification](../contracts/openapi.json). Only `intent: "propose"` is supported. Use a new UUID request ID, the observed layout revision, UTC observation time, opaque source references and a factual review reason. Private or uncertain widget captions must use `restricted` or `unknown` disclosure; the operator must explicitly permit public display before approval.
 

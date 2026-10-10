@@ -1,6 +1,6 @@
 import { Ajv } from 'ajv';
 import { ensure } from '../contracts/errors.ts';
-import { DEFAULT_SETTINGS, widgetInstanceSchema, type OverlayConfig, type Overlay, type Scene, type Layout, type WidgetInstance, type OverlayFrame } from '../contracts/overlay.ts';
+import { DEFAULT_SETTINGS, widgetInstanceSchema, widgetZIndex, type OverlayConfig, type Overlay, type Scene, type Layout, type WidgetInstance, type OverlayFrame } from '../contracts/overlay.ts';
 import type { Actor, PublicContent, Session } from '../contracts/types.ts';
 import { pathAllowed, text } from '../contracts/validation.ts';
 import { widgetPlugin } from '../widgets/registry.ts';
@@ -10,7 +10,7 @@ const validateWidget = new Ajv({strict:true,allErrors:true}).compile<WidgetInsta
 export function defaultLayout(overlay:Overlay,scene:Scene):Layout {
   const ratio=overlay.width/1920, ry=overlay.height/1080;
   const positions:[string,number,number,number,number][]=[['session',1464,24,424,140],['now',1464,180,424,244],['recap',1464,440,424,180],['events',1464,636,424,160],['work',1464,812,424,244],['pin',32,920,1384,128],['away',320,340,1280,400]];
-  return {overlayId:overlay.id,sceneId:scene.id,revision:0,widgets:positions.map(([type,x,y,w,h])=>({id:type,type,x:Math.round(x*ratio),y:Math.round(y*ry),width:Math.max(48,Math.round(w*ratio)),height:Math.max(32,Math.round(h*ry)),visible:scene.id==='break'?type==='away':type!=='away',settings:{...DEFAULT_SETTINGS,...widgetPlugin(type)?.defaults,fontSize:Math.max(12,Math.round((widgetPlugin(type)?.defaults?.fontSize??26)*Math.min(ratio,ry))),minFontSize:12,padding:Math.round((widgetPlugin(type)?.defaults?.padding??20)*Math.min(ratio,ry))}}))};
+  return {overlayId:overlay.id,sceneId:scene.id,revision:0,widgets:positions.map(([type,x,y,w,h])=>({id:type,type,zIndex:0,x:Math.round(x*ratio),y:Math.round(y*ry),width:Math.max(48,Math.round(w*ratio)),height:Math.max(32,Math.round(h*ry)),visible:scene.id==='break'?type==='away':type!=='away',settings:{...DEFAULT_SETTINGS,...widgetPlugin(type)?.defaults,fontSize:Math.max(12,Math.round((widgetPlugin(type)?.defaults?.fontSize??26)*Math.min(ratio,ry))),minFontSize:12,padding:Math.round((widgetPlugin(type)?.defaults?.padding??20)*Math.min(ratio,ry))}}))};
 }
 export function defaultOverlayConfig():OverlayConfig {
   const overlays:Overlay[]=[{id:'overlay-1920x1080',name:'1080p',width:1920,height:1080},{id:'overlay-1280x720',name:'720p',width:1280,height:720}],scenes:Scene[]=[{id:'live',name:'진행 중'},{id:'break',name:'자리 비움'}];
@@ -31,7 +31,7 @@ export function validatedWidgets(overlay:Overlay,raw:unknown):WidgetInstance[]{
     ensure(widget.settings.minFontSize<=widget.settings.fontSize,'INVALID_LAYOUT','Minimum font size must not exceed the requested font size.');
     for(const field of ['message','detail'] as const) if(widget.settings[field]) text(widget.settings[field],field==='message'?160:300);
   }
-  return structuredClone(raw).map(widget=>({...widget,settings:{...widget.settings,background:normalizeWidgetColor(widget.settings.background,true)!,color:normalizeWidgetColor(widget.settings.color)!}}));
+  return structuredClone(raw).map(widget=>({...widget,zIndex:widgetZIndex(widget),settings:{...widget.settings,background:normalizeWidgetColor(widget.settings.background,true)!,color:normalizeWidgetColor(widget.settings.color)!}}));
 }
 function publicContent(s:Session|undefined,now:string):PublicContent|null{
   if(!s)return null;
@@ -45,5 +45,5 @@ function permitted(actor:Actor|undefined,path:string):boolean{
 }
 export function projectOverlay(config:OverlayConfig,overlayId:string,s:Session|undefined,now:string,sceneId=config.activeSceneId,actor?:Actor):OverlayFrame {
   const {overlay,scene,layout}=overlayPair(config,overlayId,sceneId),content=publicContent(s,now);
-  return {...overlay,sceneId:scene.id,sceneName:scene.name,configRevision:config.revision,layoutRevision:layout.revision,widgets:layout.widgets.map(w=>({...w,settings:{...w.settings,message:'',detail:''},blocks:w.visible?(widgetPlugin(w.type)?.project({content,scene},w.settings)??[]).filter(b=>permitted(actor,b.path)).map(b=>({...b,path:b.path.startsWith('/widget/')?b.path.replace('/widget/',`/widget/${w.id}/`):b.path})):[]}))};
+  return {...overlay,sceneId:scene.id,sceneName:scene.name,configRevision:config.revision,layoutRevision:layout.revision,widgets:layout.widgets.map(w=>({...w,zIndex:widgetZIndex(w),settings:{...w.settings,message:'',detail:''},blocks:w.visible?(widgetPlugin(w.type)?.project({content,scene},w.settings)??[]).filter(b=>permitted(actor,b.path)).map(b=>({...b,path:b.path.startsWith('/widget/')?b.path.replace('/widget/',`/widget/${w.id}/`):b.path})):[]}))};
 }

@@ -119,6 +119,13 @@
             "minimum": 32,
             "maximum": 2160
           },
+          "zIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 0,
+            "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+          },
           "visible": {
             "type": "boolean"
           },
@@ -197,7 +204,7 @@
           }
         }
       },
-      "description": "Complete replacement widget array. Array order is back-to-front. Include unchanged widgets to retain them."
+      "description": "Complete replacement widget array. Higher zIndex renders in front; equal values use back-to-front array order. Omitted zIndex is zero. Include unchanged widgets to retain them."
     }
   }
 }

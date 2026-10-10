@@ -18,6 +18,6 @@ export const layoutChangeSchema = {
       sourceRefs: { type: 'array', maxItems: 20, items: { type: 'string', minLength: 1, maxLength: 100, pattern: '^[A-Za-z0-9:_-]+$' } },
       reason: { type: 'string', minLength: 1, maxLength: 240 }
     } },
-    widgets: { type: 'array', maxItems: 32, items: widgetInstanceSchema, description: 'Complete replacement widget array. Array order is back-to-front. Include unchanged widgets to retain them.' }
+    widgets: { type: 'array', maxItems: 32, items: widgetInstanceSchema, description: 'Complete replacement widget array. Higher zIndex renders in front; equal values use back-to-front array order. Omitted zIndex is zero. Include unchanged widgets to retain them.' }
   }
 };

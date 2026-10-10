@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import { setup, apply, now, event, change } from './helpers.ts';
 import { operator, Engine } from '../src/domain/engine.ts';
 
+test('widget z-index persists and publishes; omitted values retain legacy order and invalid layers are atomic',()=>{
+  const x=setup(),e=x.engine;
+  try{
+    const config=e.overlayConfig(),layout=config.layouts[0],widgets=structuredClone(layout.widgets);
+    widgets.forEach(w=>{delete w.zIndex;});
+    const save=()=>e.updateOverlays({expectedRevision:e.overlayConfig().revision,action:'save_layout',overlayId:layout.overlayId,sceneId:layout.sceneId,widgets});
+    const legacy=save();assert.ok(legacy.layouts[0].widgets.every(w=>w.zIndex===0));assert.deepEqual(legacy.layouts[0].widgets.map(w=>w.id),widgets.map(w=>w.id));
+    widgets[0].zIndex=10000;const saved=save();assert.equal(saved.layouts[0].widgets[0].zIndex,10000);
+    assert.equal(e.output(layout.overlayId).snapshot.overlay!.widgets[0].zIndex,10000);
+    assert.deepEqual(new Engine(x.store).overlayConfig(),saved);
+    for(const invalid of [-1,10001,1.5,NaN]){widgets[0].zIndex=invalid;assert.throws(save);assert.deepEqual(e.overlayConfig(),saved);}
+  }finally{x.store.close();}
+});
+
 test('alpha colors are accepted over layout commands, normalized, published and retained after restart',()=>{
   const x=setup(),e=x.engine;
   try{

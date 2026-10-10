@@ -41,7 +41,7 @@
           "Producer"
         ],
         "summary": "Read resolutions, scenes, layouts and widget plugins",
-        "description": "Authenticated layout metadata and operator-authored widget settings only; contains no session content. Every overlay/scene pair has a layout. Array order is back-to-front stacking.",
+        "description": "Authenticated layout metadata and operator-authored widget settings only; contains no session content. Every overlay/scene pair has a layout. Higher zIndex renders in front; equal values use back-to-front array order. Omitted zIndex is zero.",
         "security": [
           {
             "bearerAuth": []
@@ -6931,6 +6931,13 @@
                       "minimum": 32,
                       "maximum": 2160
                     },
+                    "zIndex": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 10000,
+                      "default": 0,
+                      "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+                    },
                     "visible": {
                       "type": "boolean"
                     },
@@ -8850,6 +8857,13 @@
             "minimum": 32,
             "maximum": 2160
           },
+          "zIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 0,
+            "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+          },
           "visible": {
             "type": "boolean"
           },
@@ -9048,6 +9062,13 @@
                   "minimum": 32,
                   "maximum": 2160
                 },
+                "zIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "default": 0,
+                  "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+                },
                 "visible": {
                   "type": "boolean"
                 },
@@ -9126,7 +9147,7 @@
                 }
               }
             },
-            "description": "Complete replacement widget array. Array order is back-to-front. Include unchanged widgets to retain them."
+            "description": "Complete replacement widget array. Higher zIndex renders in front; equal values use back-to-front array order. Omitted zIndex is zero. Include unchanged widgets to retain them."
           }
         }
       },
@@ -9773,6 +9794,13 @@
                     "height"
                   ]
                 },
+                "zIndex": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000,
+                  "default": 0,
+                  "description": "Higher values render in front. Equal values use array order, with later widgets in front. Omitted values default to zero for compatibility."
+                },
                 "visible": {
                   "type": "boolean"
                 },
@@ -9805,6 +9833,7 @@
                 "id",
                 "type",
                 "rect",
+                "zIndex",
                 "visible",
                 "overflow",
                 "scrolling",
