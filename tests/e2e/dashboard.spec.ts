@@ -114,6 +114,54 @@ test('widget colors accept RGB/RGBA, preserve alpha in pickers, persist and supp
   }
 });
 
+test('layout undo groups drag and resize gestures, restores saved drafts and resets across layouts',async({page,request})=>{
+  const fixture=await seed(request,'normal'),{config}=await api(request,'/admin/overlays');
+  const original=config.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets;
+  await login(page,false);
+  const handle=page.getByRole('button',{name:'위젯 now',exact:true}),undo=page.getByRole('button',{name:'실행 취소',exact:true}),redo=page.getByRole('button',{name:'다시 실행',exact:true});
+  const field=(key:string)=>page.getByLabel(`위젯 ${key}`,{exact:true});
+  await expect(handle).toBeVisible();const initial=Object.fromEntries(await Promise.all(['x','y','width','height'].map(async key=>[key,await field(key).inputValue()])));
+  const drag=async(target:typeof handle,dx:number,dy:number)=>{const box=(await target.boundingBox())!;await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+dx,box.y+box.height/2+dy,{steps:6});await page.mouse.up();};
+  try {
+    await expect(undo).toBeDisabled();await drag(handle,-30,12);
+    const movedX=await field('x').inputValue(),movedY=await field('y').inputValue();expect(movedX).not.toBe(initial.x);expect(movedY).not.toBe(initial.y);
+    await page.keyboard.press('Control+z');await expect(field('x')).toHaveValue(initial.x);await expect(field('y')).toHaveValue(initial.y);
+    await expect(undo).toBeDisabled();await expect(redo).toBeEnabled();await expect(page.getByLabel('오버레이',{exact:true})).toBeEnabled();
+    await handle.click();await expect(redo).toBeEnabled();await page.keyboard.press('Control+Shift+z');await expect(field('x')).toHaveValue(movedX);await expect(field('y')).toHaveValue(movedY);
+    await page.keyboard.press('Control+z');await page.keyboard.press('Control+y');await expect(field('x')).toHaveValue(movedX);await undo.click();
+    await drag(page.getByRole('button',{name:'now 크기 조절',exact:true}),-18,10);expect(await field('width').inputValue()).not.toBe(initial.width);expect(await field('height').inputValue()).not.toBe(initial.height);
+    await page.keyboard.press('Control+z');await expect(field('width')).toHaveValue(initial.width);await expect(field('height')).toHaveValue(initial.height);await expect(undo).toBeDisabled();
+    await handle.focus();await page.keyboard.press('Shift+ArrowLeft');await expect(field('x')).toHaveValue(String(Number(initial.x)-10));await page.keyboard.press('Control+z');await expect(field('x')).toHaveValue(initial.x);
+    await field('x').fill('321');await page.getByRole('button',{name:'저장 전 검토',exact:true}).click();await page.getByRole('button',{name:'검토한 레이아웃 저장',exact:true}).click();await expect(page.getByText('레이아웃을 저장했습니다.',{exact:true})).toBeVisible();
+    await expect(undo).toBeEnabled();await page.keyboard.press('Control+z');await expect(field('x')).toHaveValue(initial.x);
+    await expect(page.getByRole('region',{name:'레이아웃 저장 검토'})).toHaveCount(0);await expect(page.getByRole('button',{name:'검토한 레이아웃 저장',exact:true})).toBeDisabled();
+    const {config:saved}=await api(request,'/admin/overlays');expect(saved.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets.find((widget:any)=>widget.id==='now').x).toBe(321);
+    await fixture.change([{op:'set_now',value:{title:'활동 갱신 후에도 실행 취소 유지',detail:'실시간 내용 업데이트',status:'in_progress',next:null}}]);
+    await expect(page.locator('.overlay-editor-stage [data-field="/now/title"]')).toHaveText('활동 갱신 후에도 실행 취소 유지');await expect(redo).toBeEnabled();await redo.click();await expect(field('x')).toHaveValue('321');
+    await expect(page.getByLabel('오버레이',{exact:true})).toBeEnabled();await expect(page.locator('.overlay-editor-stage [data-widget="now"]')).toHaveCSS('left','321px');await page.screenshot({path:'artifacts/overlay-history.png',fullPage:true});
+    await page.getByLabel('오버레이',{exact:true}).selectOption('overlay-1280x720');await expect(undo).toBeDisabled();await expect(redo).toBeDisabled();
+  } finally {
+    const {config:latest}=await api(request,'/admin/overlays');await api(request,'/admin/layouts',{overlayId:'overlay-1920x1080',sceneId:'live',widgets:original,expectedRevision:latest.revision});
+  }
+});
+
+test('layout undo restores widget settings, visibility, order and removed or added widgets, preserving native text undo',async({page,request})=>{
+  await seed(request,'normal');await login(page,false);
+  const undo=page.getByRole('button',{name:'실행 취소',exact:true}),redo=page.getByRole('button',{name:'다시 실행',exact:true}),selected=page.getByLabel('위젯 선택',{exact:true});
+  const background=page.getByLabel('배경색',{exact:true});await expect(background).toBeVisible();const initial=await background.inputValue();
+  await background.fill('#');await background.pressSequentially('8BF8');await undo.click();await expect(background).toHaveValue(initial);await expect(undo).toBeDisabled();await redo.click();await expect(background).toHaveValue('#8BF8');await undo.click();
+  const visible=page.getByLabel('위젯 표시',{exact:true});await visible.uncheck();await undo.click();await expect(visible).toBeChecked();
+  const order=()=>page.locator('.widget-handle').evaluateAll(els=>els.map(el=>el.getAttribute('aria-label'))),original=await order();await page.getByRole('button',{name:'앞으로',exact:true}).click();expect(await order()).not.toEqual(original);await undo.click();expect(await order()).toEqual(original);
+  await page.getByRole('button',{name:'위젯 제거',exact:true}).click();await expect(page.getByRole('button',{name:'위젯 now',exact:true})).toHaveCount(0);await undo.click();await expect(selected).toHaveValue('now');await expect(background).toHaveValue(initial);await expect(page.getByRole('button',{name:'위젯 now',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'위젯 추가',exact:true}).click();const added=await selected.inputValue(),message=page.getByLabel('상태 문구',{exact:true}),defaultMessage=await message.inputValue();
+  await message.fill('새');await message.pressSequentially(' 상태 문구');await undo.click();await expect(message).toHaveValue(defaultMessage);await undo.click();await expect(page.getByRole('button',{name:`위젯 ${added}`,exact:true})).toHaveCount(0);
+  await redo.click();await expect(selected).toHaveValue(added);await expect(message).toHaveValue(defaultMessage);await redo.click();await expect(message).toHaveValue('새 상태 문구');
+  // A focused text field must keep browser text undo instead of the layout shortcut.
+  await message.focus();await page.evaluate(()=>{const listener=(event:KeyboardEvent)=>{if(event.ctrlKey&&event.key==='z'){document.body.dataset.undoPrevented=String(event.defaultPrevented);window.removeEventListener('keydown',listener);}};window.addEventListener('keydown',listener);});
+  await message.press('Control+z');await expect(page.locator('body')).toHaveAttribute('data-undo-prevented','false');await expect(selected).toHaveValue(added);
+  await page.getByRole('button',{name:'수정 취소 / 다시 읽기',exact:true}).click();await expect(undo).toBeDisabled();await expect(redo).toBeDisabled();await expect(selected).not.toHaveValue(added);await expect(page.getByRole('button',{name:`위젯 ${added}`,exact:true})).toHaveCount(0);
+});
+
 test('overlay editor drags, resizes, reviews and persists widget geometry and adds complete scene layouts',async({page,request})=>{
   const fixture=await seed(request,'normal');await login(page);await page.getByRole('button',{name:'오버레이 편집',exact:true}).click();
   const handle=page.getByRole('button',{name:'위젯 now',exact:true});await expect(handle).toBeVisible();const box=(await handle.boundingBox())!,initialX=Number(await page.getByLabel('위젯 x',{exact:true}).inputValue());
