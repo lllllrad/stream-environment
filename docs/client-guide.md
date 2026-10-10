@@ -51,6 +51,31 @@ console.log(`Stored outcome: ${receipt.outcome}; publication: ${receipt.publicat
 
 Check response status and `ok` on every context/capability read too. The example is a small submission illustration, not a background agent or an autonomous retry loop.
 
+## OpenAPI discovery and import
+
+Fetch `GET http://<dashboard-computer-IP>:4310/openapi.json` from the agent computer. This public endpoint requires no token and contains only API metadata and synthetic examples, with no session content or credentials. The server performs its normal Host/Origin checks. The response uses the requested dashboard origin in `servers[0].url`; fetching through a LAN address or VPN address keeps subsequent calls on that same address. It ignores forwarded headers.
+
+The OpenAPI 3.1 document is self-contained: all schemas and `$ref` targets are inside the single JSON file. Import it by URL into an OpenAPI-compatible client, or download it first (replace the example IP with the dashboard computer's address):
+
+```bash
+curl --fail --silent --show-error http://192.168.1.20:4310/openapi.json -o dashboard-openapi.json
+```
+
+In Windows PowerShell, use `curl.exe` for this command. The committed [OpenAPI file](../contracts/openapi.json) is also available for offline import; its relative server URL `/` must be resolved against the dashboard origin or overridden in the importer. `just contracts` regenerates it from the shared schemas and English request examples. Restart the dashboard after changing generated contracts to refresh the served document.
+
+For actual requests, configure `Authorization: Bearer <registered-producer-token>` privately in the client. Use the **Producer** tag to select AI integration operations; **Operator** operations require an operator credential and are unavailable to producer tokens. Schema discovery does not grant access to any protected operation.
+
+| Operation ID | Purpose |
+| --- | --- |
+| `getCapabilities` | Discover granted operations, field scopes, publication permission and limits |
+| `getCurrentSession` | Find the active session; a null session means the operator has not activated one |
+| `getSessionContext` | Read scoped content and its current revision |
+| `validateChanges` | Compare a candidate without creating content, a proposal or a receipt |
+| `submitChanges` | Submit a reviewed-content proposal, or apply when explicitly granted permission |
+| `producerHeartbeat` | Report connectivity without changing content |
+
+The validation and submission operations include `proposal` and `apply` request examples. Replace session ID, base revision, observation/event timestamps and UUID with current values; example values are not live state. Prefer `intent: propose` for operator review. Reuse the identical request ID and body after a lost submission response, and reread context before reconsidering a revision conflict. The OpenAPI importer must support version 3.1.
+
 ## Publication and uncertainty
 
 `disclosure: public` is a declaration, not a permission grant. Auto-apply additionally requires registered publishing permission, granted fields/operations, the current session, a normal revision, no locks, valid content, and an allowed observation time. An unknown/restricted source uses `intent: propose` and waits for explicit operator review. Mixing sources keeps the most restrictive classification; paraphrasing does not make private information public.

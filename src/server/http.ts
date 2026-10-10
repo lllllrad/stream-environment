@@ -26,6 +26,7 @@ async function body(req: IncomingMessage): Promise<any> {
 function pageNumber(value: string | null, fallback: number): number { if (!value) return fallback; ensure(/^\d+$/.test(value) && Number.isSafeInteger(Number(value)), 'INVALID_CURSOR', 'Cursor must be a nonnegative integer.'); return Number(value); }
 
 export function createHttp(engine: Engine, options: HttpOptions) {
+  const openapi = JSON.parse(readFileSync(new URL('../../contracts/openapi.json', import.meta.url), 'utf8'));
   const clients = new Set<Client>(), buckets = new Map<string, { tokens: number; at: number }>();
   const stats = { requests: 0, rejected: {} as Record<string, number>, lastRequestMs: 0, totalRequestMs: 0 };
   const adminDigest = tokenHash(options.adminToken), rate = options.producerRate ?? 2, burst = options.producerBurst ?? 10;
@@ -85,6 +86,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
       if (req.headers.origin) ensure(req.headers.origin === `http://${host}`, 'ORIGIN_REJECTED', 'Origin must match the request host.', 403);
       const url = new URL(req.url ?? '/', `http://${req.headers.host}`), path = url.pathname;
       const post = req.method === 'POST', get = req.method === 'GET';
+      if (get && path === '/openapi.json') return send(res, { ...openapi, servers: [{ url: `http://${host}`, description: 'Dashboard origin used to fetch this specification.' }] });
       if (get && path === '/health/live') return send(res, { ok: true });
       if (get && path === '/health/ready') { engine.store.db.prepare('SELECT 1').get(); return send(res, { ok: true }); }
       if (post && path === '/api/v1/admin/login') {

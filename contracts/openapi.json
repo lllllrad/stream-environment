@@ -3,17 +3,137 @@
   "info": {
     "title": "FRAME Broadcast Activity Dashboard",
     "version": "1.0.0",
-    "description": "Local-first, provider-independent structured activity publishing. All protected mutations enforce server-side scopes and revisions. For operator cookie writes, send X-CSRF-Token from /admin/me or login. No LLM, microphone, camera, OBS-control, URL fetching or arbitrary execution."
+    "description": "Provider-independent structured activity publishing. For AI agents, use a registered producer bearer token and Producer-tagged operations: getCapabilities, getCurrentSession, getSessionContext, validateChanges, submitChanges and producerHeartbeat. Discover current grants before submitting viewer-facing text. All protected mutations enforce server-side scopes and revisions. Cookie-authenticated operator writes require X-CSRF-Token from /admin/me or login. No LLM, microphone, camera, OBS-control, URL fetching or arbitrary execution."
   },
   "servers": [
     {
-      "url": "http://127.0.0.1:4310",
-      "description": "Same-machine access; binds to 0.0.0.0 by default. Replace with the dashboard computer IP for network clients."
+      "url": "/",
+      "description": "Resolve against the dashboard origin serving /openapi.json; override with the dashboard computer address when importing a local file."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Discovery",
+      "description": "Public API metadata without private state."
+    },
+    {
+      "name": "Producer",
+      "description": "AI content integration. Use a registered producer bearer token; actual permissions are returned by getCapabilities."
+    },
+    {
+      "name": "Operator",
+      "description": "Operator-only controls. Producer credentials cannot perform these operations."
+    },
+    {
+      "name": "Public output",
+      "description": "Anonymous read-only broadcast projections."
+    },
+    {
+      "name": "Health",
+      "description": "Process and storage readiness."
     }
   ],
   "paths": {
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenapijson",
+        "tags": [
+          "Discovery"
+        ],
+        "summary": "Download the self-contained OpenAPI specification",
+        "description": "Public API metadata only. All schemas are embedded. The HTTP response sets servers[0].url to the validated request origin, so remote clients use the dashboard address rather than their own localhost.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission, CSRF, Origin or Host rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revision, lock, ownership or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Schema, text or disclosure invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage/service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health/live": {
       "get": {
+        "operationId": "getHealthLive",
+        "tags": [
+          "Health"
+        ],
         "summary": "Process liveness",
         "description": "",
         "security": [],
@@ -112,6 +232,10 @@
     },
     "/health/ready": {
       "get": {
+        "operationId": "getHealthReady",
+        "tags": [
+          "Health"
+        ],
         "summary": "SQLite readiness",
         "description": "",
         "security": [],
@@ -210,6 +334,10 @@
     },
     "/api/v1/admin/login": {
       "post": {
+        "operationId": "postApiV1AdminLogin",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Exchange operator key for cookie and CSRF token",
         "description": "Same-origin only. HttpOnly, SameSite=Strict operator cookie scoped to /api/v1; expires after 12 hours. All cookie-authenticated mutations require X-CSRF-Token.",
         "security": [],
@@ -333,6 +461,10 @@
     },
     "/api/v1/admin/me": {
       "get": {
+        "operationId": "getApiV1AdminMe",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Read CSRF token for current operator",
         "description": "",
         "security": [
@@ -450,6 +582,10 @@
     },
     "/api/v1/admin/logout": {
       "post": {
+        "operationId": "postApiV1AdminLogout",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Invalidate the operator cookie",
         "description": "",
         "security": [
@@ -568,6 +704,10 @@
     },
     "/api/v1/capabilities": {
       "get": {
+        "operationId": "getCapabilities",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Read granted operations, field scopes and limits",
         "description": "",
         "security": [
@@ -664,6 +804,10 @@
     },
     "/api/v1/sessions/current": {
       "get": {
+        "operationId": "getCurrentSession",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Read current session ID/status/revision",
         "description": "",
         "security": [
@@ -800,6 +944,10 @@
     },
     "/api/v1/sessions/{id}/context": {
       "get": {
+        "operationId": "getSessionContext",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Read permission-filtered context",
         "description": "",
         "security": [
@@ -907,6 +1055,10 @@
     },
     "/api/v1/sessions/{id}/events": {
       "get": {
+        "operationId": "getSessionEvents",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Read scoped timeline page",
         "description": "",
         "security": [
@@ -1046,8 +1198,12 @@
     },
     "/api/v1/sessions/{id}/changes/validate": {
       "post": {
+        "operationId": "validateChanges",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Validate and compare without mutations",
-        "description": "Creates no session changes, locks, proposal, receipt or publication. Actual submission repeats all checks. An existing matching successful receipt may be returned as replay.",
+        "description": "Creates no session changes, locks, proposal, receipt or publication. Actual submission repeats all checks. An existing matching successful receipt may be returned as replay. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires publishing grants. A lost submission response requires replaying the identical request ID and body.",
         "security": [
           {
             "bearerAuth": []
@@ -1155,6 +1311,101 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ChangeSet"
+              },
+              "examples": {
+                "proposal": {
+                  "summary": "Suggest viewer-facing text for operator review",
+                  "value": {
+                    "schemaVersion": "1.0",
+                    "requestId": "c1dbeee0-651d-4bc1-9d97-c08a07d30293",
+                    "sessionId": "session_replace_from_context",
+                    "baseRevision": 12,
+                    "intent": "propose",
+                    "provenance": {
+                      "disclosure": "unknown",
+                      "observedAt": "2026-10-10T01:00:00Z",
+                      "sourceRefs": [
+                        "context:synthetic:042"
+                      ],
+                      "reason": "Suggest viewer-facing wording for the reported comparison phase"
+                    },
+                    "operations": [
+                      {
+                        "op": "set_now",
+                        "value": {
+                          "title": "Comparing the two settings",
+                          "detail": "Checking differences under the same conditions.",
+                          "status": "in_progress",
+                          "next": "Record the conditions that explain the difference"
+                        }
+                      },
+                      {
+                        "op": "update_session",
+                        "fields": {
+                          "recap": [
+                            "Preparation is complete; the comparison phase has started."
+                          ]
+                        }
+                      },
+                      {
+                        "op": "set_pin",
+                        "value": {
+                          "text": "Results are under review; no conclusion has been confirmed.",
+                          "expiresAt": null
+                        }
+                      },
+                      {
+                        "op": "upsert_event",
+                        "event": {
+                          "id": "comparison_started",
+                          "kind": "topic",
+                          "text": "Reported transition from preparation to comparison.",
+                          "occurredAt": "2026-10-10T01:00:00Z",
+                          "certainty": "tentative"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "apply": {
+                  "summary": "Publish verified content when granted permission",
+                  "value": {
+                    "schemaVersion": "1.0",
+                    "requestId": "4303598d-2bdf-4c5a-9ea7-abcd3806dc01",
+                    "sessionId": "session_demo_01",
+                    "baseRevision": 12,
+                    "intent": "apply",
+                    "provenance": {
+                      "disclosure": "public",
+                      "observedAt": "2026-10-09T13:20:00Z",
+                      "sourceRefs": [
+                        "context:demo:042"
+                      ],
+                      "reason": "Preparation is complete; the comparison begins"
+                    },
+                    "operations": [
+                      {
+                        "op": "set_now",
+                        "value": {
+                          "title": "Comparing the two settings",
+                          "detail": "Checking differences under the same conditions.",
+                          "status": "in_progress",
+                          "next": "Record conditions that explain the difference"
+                        }
+                      },
+                      {
+                        "op": "upsert_event",
+                        "event": {
+                          "id": "event_comparison_started",
+                          "kind": "topic",
+                          "text": "Preparation is complete; the comparison has started.",
+                          "occurredAt": "2026-10-09T13:20:00Z",
+                          "certainty": "confirmed"
+                        }
+                      }
+                    ]
+                  }
+                }
               }
             }
           }
@@ -1163,8 +1414,12 @@
     },
     "/api/v1/sessions/{id}/changes": {
       "post": {
+        "operationId": "submitChanges",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Atomically apply public changes or submit a proposal",
-        "description": "Path/body IDs must match. Maximum 64 KiB / 20 operations. Successful receipt replay is checked before version/locks. A rejected apply never silently becomes a proposal.",
+        "description": "Path/body IDs must match. Maximum 64 KiB / 20 operations. Successful receipt replay is checked before version/locks. A rejected apply never silently becomes a proposal. Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires publishing grants. A lost submission response requires replaying the identical request ID and body.",
         "security": [
           {
             "bearerAuth": []
@@ -1272,6 +1527,101 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ChangeSet"
+              },
+              "examples": {
+                "proposal": {
+                  "summary": "Suggest viewer-facing text for operator review",
+                  "value": {
+                    "schemaVersion": "1.0",
+                    "requestId": "c1dbeee0-651d-4bc1-9d97-c08a07d30293",
+                    "sessionId": "session_replace_from_context",
+                    "baseRevision": 12,
+                    "intent": "propose",
+                    "provenance": {
+                      "disclosure": "unknown",
+                      "observedAt": "2026-10-10T01:00:00Z",
+                      "sourceRefs": [
+                        "context:synthetic:042"
+                      ],
+                      "reason": "Suggest viewer-facing wording for the reported comparison phase"
+                    },
+                    "operations": [
+                      {
+                        "op": "set_now",
+                        "value": {
+                          "title": "Comparing the two settings",
+                          "detail": "Checking differences under the same conditions.",
+                          "status": "in_progress",
+                          "next": "Record the conditions that explain the difference"
+                        }
+                      },
+                      {
+                        "op": "update_session",
+                        "fields": {
+                          "recap": [
+                            "Preparation is complete; the comparison phase has started."
+                          ]
+                        }
+                      },
+                      {
+                        "op": "set_pin",
+                        "value": {
+                          "text": "Results are under review; no conclusion has been confirmed.",
+                          "expiresAt": null
+                        }
+                      },
+                      {
+                        "op": "upsert_event",
+                        "event": {
+                          "id": "comparison_started",
+                          "kind": "topic",
+                          "text": "Reported transition from preparation to comparison.",
+                          "occurredAt": "2026-10-10T01:00:00Z",
+                          "certainty": "tentative"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "apply": {
+                  "summary": "Publish verified content when granted permission",
+                  "value": {
+                    "schemaVersion": "1.0",
+                    "requestId": "4303598d-2bdf-4c5a-9ea7-abcd3806dc01",
+                    "sessionId": "session_demo_01",
+                    "baseRevision": 12,
+                    "intent": "apply",
+                    "provenance": {
+                      "disclosure": "public",
+                      "observedAt": "2026-10-09T13:20:00Z",
+                      "sourceRefs": [
+                        "context:demo:042"
+                      ],
+                      "reason": "Preparation is complete; the comparison begins"
+                    },
+                    "operations": [
+                      {
+                        "op": "set_now",
+                        "value": {
+                          "title": "Comparing the two settings",
+                          "detail": "Checking differences under the same conditions.",
+                          "status": "in_progress",
+                          "next": "Record conditions that explain the difference"
+                        }
+                      },
+                      {
+                        "op": "upsert_event",
+                        "event": {
+                          "id": "event_comparison_started",
+                          "kind": "topic",
+                          "text": "Preparation is complete; the comparison has started.",
+                          "occurredAt": "2026-10-09T13:20:00Z",
+                          "certainty": "confirmed"
+                        }
+                      }
+                    ]
+                  }
+                }
               }
             }
           }
@@ -1280,6 +1630,10 @@
     },
     "/api/v1/producers/heartbeat": {
       "post": {
+        "operationId": "producerHeartbeat",
+        "tags": [
+          "Producer"
+        ],
         "summary": "Report producer connectivity without changing content",
         "description": "",
         "security": [
@@ -1395,6 +1749,10 @@
     },
     "/api/v1/admin/state": {
       "get": {
+        "operationId": "getApiV1AdminState",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Operator dashboard aggregate, without credential hashes",
         "description": "",
         "security": [
@@ -1491,6 +1849,10 @@
     },
     "/api/v1/admin/sessions": {
       "post": {
+        "operationId": "postApiV1AdminSessions",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Create a prepared session",
         "description": "",
         "security": [
@@ -1617,6 +1979,10 @@
     },
     "/api/v1/admin/sessions/{id}/export": {
       "get": {
+        "operationId": "getApiV1AdminSessionsByIdExport",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Download an editorial session record as JSON or Markdown",
         "description": "Operator-only attachment of the current stored content, including held edits. Not a publication history or database backup. Excludes retracted items, expired notices, proposals, provenance, ownership, credentials, locks, receipts and audit data. English Markdown headings preserve the original content wording as escaped literal text. GET is read-only and needs no CSRF token.",
         "security": [
@@ -1748,6 +2114,10 @@
     },
     "/api/v1/admin/sessions/{id}/lifecycle": {
       "post": {
+        "operationId": "postApiV1AdminSessionsByIdLifecycle",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Start, pause, resume or end a session",
         "description": "",
         "security": [
@@ -1889,6 +2259,10 @@
     },
     "/api/v1/admin/sessions/{id}/select-work": {
       "post": {
+        "operationId": "postApiV1AdminSessionsByIdSelectWork",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Choose a visible work item; null restores latest-item selection",
         "description": "",
         "security": [
@@ -2028,6 +2402,10 @@
     },
     "/api/v1/admin/sessions/{id}/purge": {
       "post": {
+        "operationId": "postApiV1AdminSessionsByIdPurge",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Permanently scrub a complete session and its private history",
         "description": "Clears session, proposals, receipts and output caches. Redacts audit content. If current, switches all outputs to hidden. SQLite secure-delete/checkpoint/VACUUM are used. Separate backups and recordings require separate operator cleanup.",
         "security": [
@@ -2173,6 +2551,10 @@
     },
     "/api/v1/admin/locks": {
       "post": {
+        "operationId": "postApiV1AdminLocks",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Explicitly lock/unlock a field",
         "description": "",
         "security": [
@@ -2307,6 +2689,10 @@
     },
     "/api/v1/admin/proposals": {
       "get": {
+        "operationId": "getApiV1AdminProposals",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Read pending proposals",
         "description": "",
         "security": [
@@ -2415,6 +2801,10 @@
     },
     "/api/v1/admin/proposals/{id}/preview": {
       "get": {
+        "operationId": "getApiV1AdminProposalsByIdPreview",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Render hypothetical before/after content for private operator review",
         "description": "Read-only simulation of approval against the current session revision. Uses normal preset projection even during hold/hidden, labeled hypothetical. Does not approve, promote disclosure, create a receipt/lock or publish. Stale proposal baseRevision remains unchanged.",
         "security": [
@@ -2530,6 +2920,10 @@
     },
     "/api/v1/admin/proposals/{id}/decision": {
       "post": {
+        "operationId": "postApiV1AdminProposalsByIdDecision",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Review, approve or reject a proposal",
         "description": "Approval uses the current reviewed session revision. Stale proposals require explicit acknowledgment; unknown/restricted provenance requires explicit disclosure approval. Approval creates operator field locks.",
         "security": [
@@ -2675,6 +3069,10 @@
     },
     "/api/v1/admin/preview": {
       "get": {
+        "operationId": "getApiV1AdminPreview",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Compare published and next safe output snapshots",
         "description": "",
         "security": [
@@ -2794,6 +3192,10 @@
     },
     "/api/v1/admin/audit": {
       "get": {
+        "operationId": "getApiV1AdminAudit",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Read audit page in descending ID order",
         "description": "",
         "security": [
@@ -2924,6 +3326,10 @@
     },
     "/api/v1/admin/audit/{id}/undo": {
       "post": {
+        "operationId": "postApiV1AdminAuditByIdUndo",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Patch changed fields back as a new locked revision",
         "description": "",
         "security": [
@@ -3051,6 +3457,10 @@
     },
     "/api/v1/admin/control": {
       "get": {
+        "operationId": "getApiV1AdminControl",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Read channel publication mode and control revision",
         "description": "",
         "security": [
@@ -3145,6 +3555,10 @@
         }
       },
       "post": {
+        "operationId": "postApiV1AdminControl",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Update publication mode, active session or AI write gate",
         "description": "",
         "security": [
@@ -3285,6 +3699,10 @@
     },
     "/api/v1/admin/producers": {
       "post": {
+        "operationId": "postApiV1AdminProducers",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Register scoped producer and return its token once",
         "description": "",
         "security": [
@@ -3451,6 +3869,10 @@
     },
     "/api/v1/admin/producers/{id}/revoke": {
       "post": {
+        "operationId": "postApiV1AdminProducersByIdRevoke",
+        "tags": [
+          "Operator"
+        ],
         "summary": "Immediately invalidate producer access",
         "description": "",
         "security": [
@@ -3587,6 +4009,10 @@
     },
     "/api/v1/display/{screenId}/snapshot": {
       "get": {
+        "operationId": "getApiV1DisplayByScreenIdSnapshot",
+        "tags": [
+          "Public output"
+        ],
         "summary": "Read a complete public snapshot",
         "description": "",
         "security": [],
@@ -3687,6 +4113,10 @@
     },
     "/api/v1/display/{screenId}/events": {
       "get": {
+        "operationId": "getApiV1DisplayByScreenIdEvents",
+        "tags": [
+          "Public output"
+        ],
         "summary": "Subscribe to latest snapshots and heartbeats",
         "description": "SSE: snapshot events have monotonic publicRevision IDs; heartbeat has no event ID and only publicRevision/leaseMs; New/reconnected subscribers receive latest full snapshot, not historic replay. Last-Event-ID is accepted but not replayed.",
         "security": [],
@@ -3790,7 +4220,8 @@
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "description": "Registered producer token for AI requests; operator credential for Operator-tagged routes. Never put tokens in URLs."
       },
       "operatorCookie": {
         "type": "apiKey",
@@ -3800,19 +4231,1220 @@
     },
     "schemas": {
       "SessionExport": {
-        "$ref": "./session-export.schema.json"
+        "title": "SessionContentExport",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": "1.0"
+          },
+          "kind": {
+            "const": "session_content_export"
+          },
+          "exportedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timezone": {
+            "const": "Asia/Seoul"
+          },
+          "publication": {
+            "enum": [
+              "published",
+              "held",
+              "hidden",
+              "not_applicable"
+            ]
+          },
+          "session": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "status": {
+                "enum": [
+                  "prepared",
+                  "active",
+                  "paused",
+                  "ended"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "goal": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "recap": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "startedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "endedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "lastActivity": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SessionExport/$defs/Now"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pin": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SessionExport/$defs/Pin"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SessionExport/$defs/Event"
+                }
+              },
+              "workItems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SessionExport/$defs/Work"
+                }
+              },
+              "selectedWorkId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "title",
+              "goal",
+              "recap",
+              "revision",
+              "createdAt",
+              "startedAt",
+              "endedAt",
+              "lastActivity",
+              "pin",
+              "events",
+              "workItems",
+              "selectedWorkId"
+            ]
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "kind",
+          "exportedAt",
+          "timezone",
+          "publication",
+          "session"
+        ],
+        "$defs": {
+          "Now": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "status": {
+                "enum": [
+                  "preparing",
+                  "in_progress",
+                  "blocked",
+                  "paused",
+                  "complete"
+                ]
+              },
+              "next": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "detail",
+              "status",
+              "next"
+            ]
+          },
+          "Event": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "kind": {
+                "enum": [
+                  "topic",
+                  "progress",
+                  "decision",
+                  "result",
+                  "correction"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "certainty": {
+                "enum": [
+                  "confirmed",
+                  "tentative"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "text",
+              "occurredAt",
+              "certainty"
+            ]
+          },
+          "Pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "expiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "text",
+              "expiresAt"
+            ]
+          },
+          "Work": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "status": {
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "publicResult": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "status",
+              "publicResult"
+            ]
+          }
+        }
       },
       "ChangeSet": {
-        "$ref": "./change-set.schema.json"
+        "title": "ChangeSet",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "const": "1.0"
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "baseRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "intent": {
+            "enum": [
+              "apply",
+              "propose"
+            ]
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "disclosure": {
+                "enum": [
+                  "public",
+                  "unknown",
+                  "restricted"
+                ]
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "sourceRefs": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9:_-]+$"
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            },
+            "required": [
+              "disclosure",
+              "observedAt",
+              "sourceRefs",
+              "reason"
+            ]
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "update_session"
+                    },
+                    "fields": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "goal": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "recap": {
+                          "type": "array",
+                          "maxItems": 3,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          }
+                        }
+                      },
+                      "required": [],
+                      "minProperties": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "fields"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "set_now"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ChangeSet/$defs/now"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "set_pin"
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ChangeSet/$defs/pin"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "value"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "upsert_event"
+                    },
+                    "event": {
+                      "$ref": "#/components/schemas/ChangeSet/$defs/event"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "event"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "retract_event"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "upsert_work_item"
+                    },
+                    "workItem": {
+                      "$ref": "#/components/schemas/ChangeSet/$defs/work"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "workItem"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "op": {
+                      "const": "retract_work_item"
+                    },
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "id"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "requestId",
+          "sessionId",
+          "baseRevision",
+          "intent",
+          "provenance",
+          "operations"
+        ],
+        "$defs": {
+          "now": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "status": {
+                "enum": [
+                  "preparing",
+                  "in_progress",
+                  "blocked",
+                  "paused",
+                  "complete"
+                ]
+              },
+              "next": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "detail",
+              "status",
+              "next"
+            ]
+          },
+          "event": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "kind": {
+                "enum": [
+                  "topic",
+                  "progress",
+                  "decision",
+                  "result",
+                  "correction"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "certainty": {
+                "enum": [
+                  "confirmed",
+                  "tentative"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "text",
+              "occurredAt",
+              "certainty"
+            ]
+          },
+          "work": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "status": {
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "publicResult": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "status",
+              "publicResult"
+            ]
+          },
+          "pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "expiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "text",
+              "expiresAt"
+            ]
+          }
+        }
       },
       "PublicSnapshot": {
-        "$ref": "./public-snapshot.schema.json"
+        "title": "PublicSnapshot",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "screenId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "preset": {
+            "enum": [
+              "full",
+              "side",
+              "lower"
+            ]
+          },
+          "publicRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "enum": [
+              "auto",
+              "hold",
+              "hidden"
+            ]
+          },
+          "leaseMs": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 30000
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicSnapshot/$defs/PublicContent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compact": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "screenId",
+          "preset",
+          "publicRevision",
+          "sessionId",
+          "mode",
+          "leaseMs",
+          "publishedAt",
+          "content"
+        ],
+        "$defs": {
+          "Now": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 48
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "status": {
+                "enum": [
+                  "preparing",
+                  "in_progress",
+                  "blocked",
+                  "paused",
+                  "complete"
+                ]
+              },
+              "next": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "status"
+            ]
+          },
+          "Event": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "kind": {
+                "enum": [
+                  "topic",
+                  "progress",
+                  "decision",
+                  "result",
+                  "correction"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "Z$"
+              },
+              "certainty": {
+                "enum": [
+                  "confirmed",
+                  "tentative"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "text",
+              "occurredAt",
+              "certainty"
+            ]
+          },
+          "Pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "expiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "Z$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "text",
+              "expiresAt"
+            ]
+          },
+          "Work": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,80}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "status": {
+                "enum": [
+                  "queued",
+                  "running",
+                  "succeeded",
+                  "failed",
+                  "cancelled"
+                ]
+              },
+              "publicResult": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "status",
+              "publicResult"
+            ]
+          },
+          "PublicContent": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "status": {
+                "enum": [
+                  "prepared",
+                  "active",
+                  "paused",
+                  "ended"
+                ]
+              },
+              "goal": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "now": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PublicSnapshot/$defs/Now"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "recap": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "type": "string",
+                  "maxLength": 100
+                }
+              },
+              "events": {
+                "type": "array",
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/components/schemas/PublicSnapshot/$defs/Event"
+                }
+              },
+              "pin": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PublicSnapshot/$defs/Pin"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "workItem": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PublicSnapshot/$defs/Work"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title",
+              "status",
+              "now"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "preset": {
+                  "const": "lower"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "content": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "maxLength": 120
+                        },
+                        "status": {
+                          "enum": [
+                            "prepared",
+                            "active",
+                            "paused",
+                            "ended"
+                          ]
+                        },
+                        "now": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "title": {
+                                  "type": "string",
+                                  "maxLength": 48
+                                },
+                                "status": {
+                                  "enum": [
+                                    "preparing",
+                                    "in_progress",
+                                    "blocked",
+                                    "paused",
+                                    "complete"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "title",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "status",
+                        "now"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "mode": {
+                  "const": "hidden"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "content": {
+                  "type": "null"
+                },
+                "sessionId": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       },
       "ChangeReceipt": {
-        "$ref": "./change-receipt.schema.json"
+        "title": "ChangeReceipt",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "enum": [
+              "applied",
+              "proposed",
+              "no_change"
+            ]
+          },
+          "sessionId": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "appliedRevision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "publication": {
+            "enum": [
+              "published",
+              "held",
+              "hidden",
+              "not_applicable"
+            ]
+          },
+          "changedPaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 240
+            }
+          },
+          "proposalId": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "ok",
+          "requestId",
+          "outcome",
+          "sessionId",
+          "appliedRevision",
+          "publication",
+          "changedPaths",
+          "warnings"
+        ]
       },
       "Error": {
-        "$ref": "./error.schema.json"
+        "title": "Error",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ok": {
+            "const": false
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 120
+                }
+              },
+              "currentRevision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "recovery": {
+                "type": "string",
+                "maxLength": 400
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "paths",
+              "retryable",
+              "recovery"
+            ]
+          }
+        },
+        "required": [
+          "ok",
+          "error"
+        ]
       },
       "Control": {
         "type": "object",

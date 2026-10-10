@@ -6,6 +6,18 @@ const integer = {type:'integer',minimum:0}, boolean = {type:'boolean'}, date = {
 const ref = name => ({$ref:`#/components/schemas/${name}`});
 const local = name => ({$ref:`#/$defs/${name}`});
 const enumOf = (...values) => ({enum:values});
+// Embed standalone schemas with document-root pointers for single-file OpenAPI imports.
+function embed(name, schema) {
+  const value = structuredClone(schema);
+  delete value.$id; delete value.$schema;
+  function visit(node) {
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.$ref === 'string' && node.$ref.startsWith('#/')) node.$ref = `#/components/schemas/${name}/${node.$ref.slice(2)}`;
+    Object.values(node).forEach(visit);
+  }
+  visit(value);
+  return value;
+}
 const now = {...change.$defs.now,properties:{...change.$defs.now.properties,detail:text(120),next:nullable(text(60))},required:['title','status']};
 const content = object({title:text(120),status:enumOf('prepared','active','paused','ended'),goal:text(300),now:nullable(local('Now')),recap:{type:'array',maxItems:3,items:text(100)},events:{type:'array',maxItems:3,items:local('Event')},pin:nullable(local('Pin')),workItem:nullable(local('Work'))},['title','status','now']);
 const publicSnapshot = {$schema:'http://json-schema.org/draft-07/schema#',title:'PublicSnapshot',...object({screenId:text(80),preset:enumOf('full','side','lower'),publicRevision:integer,sessionId:nullable(text(80)),mode:enumOf('auto','hold','hidden'),leaseMs:{type:'integer',minimum:1000,maximum:30000},publishedAt:date,content:nullable(local('PublicContent')),compact:boolean},['screenId','preset','publicRevision','sessionId','mode','leaseMs','publishedAt','content']),$defs:{Now:now,Event:change.$defs.event,Pin:change.$defs.pin,Work:change.$defs.work,PublicContent:content},allOf:[{if:{properties:{preset:{const:'lower'}}},then:{properties:{content:{anyOf:[{type:'null'},object({title:text(120),status:enumOf('prepared','active','paused','ended'),now:nullable(object({title:text(48),status:change.$defs.now.properties.status}))})]}}}},{if:{properties:{mode:{const:'hidden'}}},then:{properties:{content:{type:'null'},sessionId:{type:'null'}}}}]};
@@ -15,7 +27,7 @@ const sessionRecord = object({id:text(80),status:enumOf('prepared','active','pau
 const sessionExport = {$schema:'http://json-schema.org/draft-07/schema#',title:'SessionContentExport',...object({schemaVersion:{const:'1.0'},kind:{const:'session_content_export'},exportedAt:date,timezone:{const:'Asia/Seoul'},publication:enumOf('published','held','hidden','not_applicable'),session:sessionRecord}),$defs:{Now:change.$defs.now,Event:change.$defs.event,Pin:change.$defs.pin,Work:change.$defs.work}};
 for (const [file,schema] of Object.entries({'session-export.schema.json':sessionExport,'public-snapshot.schema.json':publicSnapshot,'change-receipt.schema.json':receipt,'error.schema.json':error})) writeFileSync(`contracts/${file}`,JSON.stringify(schema,null,2)+'\n');
 const schemas={
-  SessionExport:{$ref:'./session-export.schema.json'},ChangeSet:{$ref:'./change-set.schema.json'},PublicSnapshot:{$ref:'./public-snapshot.schema.json'},ChangeReceipt:{$ref:'./change-receipt.schema.json'},Error:{$ref:'./error.schema.json'},
+  SessionExport:embed('SessionExport',sessionExport),ChangeSet:embed('ChangeSet',change),PublicSnapshot:embed('PublicSnapshot',publicSnapshot),ChangeReceipt:embed('ChangeReceipt',receipt),Error:embed('Error',error),
   Control:object({activeSessionId:nullable(text(80)),controlRevision:integer,mode:enumOf('auto','hold','hidden'),aiWritesEnabled:boolean,timezone:{const:'Asia/Seoul'}}),
   Session:object({id:text(80),status:enumOf('prepared','active','paused','ended'),title:text(120),goal:text(300),recap:array(text(100)),revision:integer,createdAt:date,startedAt:nullable(date),endedAt:nullable(date),now:nullable(change.$defs.now),nowObservedAt:nullable(date),pin:nullable(change.$defs.pin),events:array({type:'object'}),workItems:array({type:'object'}),locks:array({type:'object'}),selectedWorkId:nullable(text(80))}),
   Context:{anyOf:[ref('Session'),ref('ProducerContext')],description:'Operator session or scope-filtered producer context. Producers never receive private proposals, provenance, lock reasons, credentials or audit data.'},
@@ -34,14 +46,23 @@ schemas.State=object({control:ref('Control'),sessions:array(object({id:text(80),
 schemas.ProposalPreview=object({proposalId:text(100),proposalRevision:integer,sessionRevision:integer,baseRevision:integer,stale:boolean,publication:enumOf('published','held','hidden','not_applicable'),changedPaths:array(text(120)),before:ref('PublicSnapshot'),after:ref('PublicSnapshot')});
 const operationResponses = schema => ({'200':{description:'Success',content:{'application/json':{schema}}},...Object.fromEntries([401,403,404,409,422,429,503].map(status=>[status,{description:{401:'Invalid credential',403:'Permission, CSRF, Origin or Host rejected',404:'Resource missing',409:'Revision, lock, ownership or idempotency conflict',422:'Schema, text or disclosure invalid',429:'Rate limit',503:'Storage/service unavailable'}[status],content:{'application/json':{schema:ref('Error')}}}]))});
 const paths={};
+const producerOperationIds = {
+  'get /api/v1/capabilities':'getCapabilities', 'get /api/v1/sessions/current':'getCurrentSession',
+  'get /api/v1/sessions/{id}/context':'getSessionContext', 'get /api/v1/sessions/{id}/events':'getSessionEvents',
+  'post /api/v1/sessions/{id}/changes/validate':'validateChanges', 'post /api/v1/sessions/{id}/changes':'submitChanges',
+  'post /api/v1/producers/heartbeat':'producerHeartbeat'
+};
 function add(method,path,summary,{request,response=object({ok:boolean}),security=[{bearerAuth:[]}],parameters=[],description=''}={}) {
-  const op={summary,description,security,responses:operationResponses(response)};
+  const operationId = producerOperationIds[`${method} ${path}`] ?? method + path.split('/').filter(Boolean).map(part => part.replace(/\{([^}]+)\}/g,'by_$1').replace(/(^|[_-])([a-z])/g,(_,prefix,letter)=>letter.toUpperCase()).replace(/\./g,'')).join('');
+  const tag = path.startsWith('/api/v1/admin/') ? 'Operator' : path.startsWith('/api/v1/display/') ? 'Public output' : path.startsWith('/health/') ? 'Health' : path === '/openapi.json' ? 'Discovery' : 'Producer';
+  const op={operationId,tags:[tag],summary,description,security,responses:operationResponses(response)};
   const matches=Array.from(path.matchAll(/\{([^}]+)\}/g)).map(m=>({name:m[1],in:'path',required:true,schema:text(100)}));
   if(matches.length||parameters.length)op.parameters=[...matches,...parameters];
   if(request)op.requestBody={required:true,content:{'application/json':{schema:request}}};
   (paths[path]??={})[method]=op;
 }
 const admin=[{bearerAuth:[]},{operatorCookie:[]}], either=[{bearerAuth:[]},{operatorCookie:[]}], expected={expectedControlRevision:integer}, revision={expectedRevision:integer}, cursor={name:'cursor',in:'query',schema:integer};
+add('get','/openapi.json','Download the self-contained OpenAPI specification',{security:[],response:{type:'object',additionalProperties:true},description:'Public API metadata only. All schemas are embedded. The HTTP response sets servers[0].url to the validated request origin, so remote clients use the dashboard address rather than their own localhost.'});
 add('get','/health/live','Process liveness',{security:[]});add('get','/health/ready','SQLite readiness',{security:[]});
 add('post','/api/v1/admin/login','Exchange operator key for cookie and CSRF token',{request:object({token:text(300)}),response:object({ok:{const:true},csrfToken:text(100)}),security:[],description:'Same-origin only. HttpOnly, SameSite=Strict operator cookie scoped to /api/v1; expires after 12 hours. All cookie-authenticated mutations require X-CSRF-Token.'});
 add('get','/api/v1/admin/me','Read CSRF token for current operator',{security:admin,response:object({ok:boolean,csrfToken:nullable(text(100))})});add('post','/api/v1/admin/logout','Invalidate the operator cookie',{security:admin,request:object({})});
@@ -51,6 +72,14 @@ add('get','/api/v1/sessions/{id}/context','Read permission-filtered context',{se
 add('get','/api/v1/sessions/{id}/events','Read scoped timeline page',{security:either,parameters:[cursor],response:object({items:array({type:'object'}),nextCursor:nullable(integer)})});
 add('post','/api/v1/sessions/{id}/changes/validate','Validate and compare without mutations',{security:either,request:ref('ChangeSet'),response:ref('Validation'),description:'Creates no session changes, locks, proposal, receipt or publication. Actual submission repeats all checks. An existing matching successful receipt may be returned as replay.'});
 add('post','/api/v1/sessions/{id}/changes','Atomically apply public changes or submit a proposal',{security:either,request:ref('ChangeSet'),response:ref('ChangeReceipt'),description:'Path/body IDs must match. Maximum 64 KiB / 20 operations. Successful receipt replay is checked before version/locks. A rejected apply never silently becomes a proposal.'});
+const examples = {
+  proposal:{summary:'Suggest viewer-facing text for operator review',value:JSON.parse(readFileSync('examples/content-proposal.json','utf8'))},
+  apply:{summary:'Publish verified content when granted permission',value:JSON.parse(readFileSync('examples/public-change.json','utf8'))}
+};
+for (const path of ['/api/v1/sessions/{id}/changes','/api/v1/sessions/{id}/changes/validate']) {
+  paths[path].post.requestBody.content['application/json'].examples = examples;
+  paths[path].post.description += ' Read capabilities, current session and scoped context first. Replace example IDs, baseRevision and timestamps with current values; generate a fresh UUID for a new logical update. Prefer intent=propose for review; apply requires publishing grants. A lost submission response requires replaying the identical request ID and body.';
+}
 add('post','/api/v1/producers/heartbeat','Report producer connectivity without changing content',{request:object({})});
 add('get','/api/v1/admin/state','Operator dashboard aggregate, without credential hashes',{security:admin,response:ref('State')});
 add('post','/api/v1/admin/sessions','Create a prepared session',{security:admin,request:object({title:text(120),goal:text(300),...expected}),response:ref('Session')});
@@ -76,6 +105,6 @@ add('post','/api/v1/admin/producers/{id}/revoke','Immediately invalidate produce
 add('get','/api/v1/display/{screenId}/snapshot','Read a complete public snapshot',{security:[],response:ref('PublicSnapshot')});
 add('get','/api/v1/display/{screenId}/events','Subscribe to latest snapshots and heartbeats',{security:[],response:text(10000),description:'SSE: snapshot events have monotonic publicRevision IDs; heartbeat has no event ID and only publicRevision/leaseMs; New/reconnected subscribers receive latest full snapshot, not historic replay. Last-Event-ID is accepted but not replayed.'});
 paths['/api/v1/display/{screenId}/events'].get.responses['200']={description:'SSE stream',content:{'text/event-stream':{schema:{type:'string'}}}};
-const spec={openapi:'3.1.0',info:{title:'FRAME Broadcast Activity Dashboard',version:'1.0.0',description:'Local-first, provider-independent structured activity publishing. All protected mutations enforce server-side scopes and revisions. For operator cookie writes, send X-CSRF-Token from /admin/me or login. No LLM, microphone, camera, OBS-control, URL fetching or arbitrary execution.'},servers:[{url:'http://127.0.0.1:4310',description:'Same-machine access; binds to 0.0.0.0 by default. Replace with the dashboard computer IP for network clients.'}],paths,components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer'},operatorCookie:{type:'apiKey',in:'cookie',name:'operator_session'}},schemas}};
+const spec={openapi:'3.1.0',info:{title:'FRAME Broadcast Activity Dashboard',version:'1.0.0',description:'Provider-independent structured activity publishing. For AI agents, use a registered producer bearer token and Producer-tagged operations: getCapabilities, getCurrentSession, getSessionContext, validateChanges, submitChanges and producerHeartbeat. Discover current grants before submitting viewer-facing text. All protected mutations enforce server-side scopes and revisions. Cookie-authenticated operator writes require X-CSRF-Token from /admin/me or login. No LLM, microphone, camera, OBS-control, URL fetching or arbitrary execution.'},servers:[{url:'/',description:'Resolve against the dashboard origin serving /openapi.json; override with the dashboard computer address when importing a local file.'}],tags:[{name:'Discovery',description:'Public API metadata without private state.'},{name:'Producer',description:'AI content integration. Use a registered producer bearer token; actual permissions are returned by getCapabilities.'},{name:'Operator',description:'Operator-only controls. Producer credentials cannot perform these operations.'},{name:'Public output',description:'Anonymous read-only broadcast projections.'},{name:'Health',description:'Process and storage readiness.'}],paths,components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer',description:'Registered producer token for AI requests; operator credential for Operator-tagged routes. Never put tokens in URLs.'},operatorCookie:{type:'apiKey',in:'cookie',name:'operator_session'}},schemas}};
 writeFileSync('contracts/openapi.json',JSON.stringify(spec,null,2)+'\n');
 console.log('Generated English OpenAPI and response schemas.');
