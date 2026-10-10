@@ -25,6 +25,8 @@ Unsaved changes appear in a hypothetical private preview. **Review before saving
 
 Selecting a scene changes all overlay resolutions together. Session status does not select a scene automatically. Layout/scene changes obey Auto, Hold and Hidden publication modes. Hold retains the last published layout and content until restore; emergency hide clears all output blocks; withdrawals, notice clearing/expiry and session-end current-activity removal still override Hold. Preview remains hypothetical during hold/hidden.
 
+For review-free scene switching and opted-in widget settings over a separately scoped bearer API, see [source policies and direct control](direct-control.md). Away is the initial opted-in widget; source-backed AI content defaults to proposal-only regardless of layout visibility.
+
 The Away widget displays an operator-authored message and optional detail independently of session activity. Live defaults to a right-side activity column with a bottom notice; Away defaults to a centered status panel. New scenes copy the chosen layout at every size. Overlay count is capped at eight, scenes at sixteen, and instances at thirty-two per layout. Resolution bounds are 640–3840 by 360–2160 pixels. Editing/deleting resolution definitions or deleting scenes is not currently provided.
 
 ## Widget presentation and overflow

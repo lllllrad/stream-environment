@@ -31,7 +31,10 @@ Errors return `{ "ok": false, "error": { "code", "message", "paths", "currentRev
 | `INVALID_EXPORT_FORMAT` | 422 | Use `format=json` or `format=markdown` on the operator session export route. |
 | `INVALID_PATH`, `INVALID_CURSOR` | 422 | Use a permitted field path or the returned nonnegative cursor. |
 | `CONTENT_TYPE_REQUIRED`, `INVALID_JSON`, `BODY_TOO_LARGE` | 422 | Send an application/json object no larger than 64 KiB. |
-| `RATE_LIMITED` | 429 | Back off within the configured producer quota; avoid unnecessary repeated context reads. |
+| `SOURCE_REVIEW_REQUIRED` | 403 | At least one affected source is proposal-only or unregistered. Submit a new reviewed proposal; only the operator can enable automatic source publication. |
+| `CONTROL_FORBIDDEN` | 403 | Use a scene/widget instance and settings allowed by this controller token and the current plugin. |
+| `CONTROLLER_LIMIT` | 429 | Revoke an unused credential before issuing another; at most 128 active control tokens are supported. |
+| `RATE_LIMITED` | 429 | Back off within the configured credential quota; avoid unnecessary repeated context reads. |
 | `OVERLAY_REVISION_CONFLICT` | 409 | Reload the overlay configuration and reconcile the draft before saving. |
 | `INVALID_LAYOUT`, `INVALID_OVERLAY`, `UNKNOWN_WIDGET` | 422 | Use installed widget types, validated settings and integer rectangles inside a supported canvas. |
 | `OVERLAY_EXISTS`, `SCENE_EXISTS` | 422 | Choose a unique resolution/name and stay within configuration limits. |

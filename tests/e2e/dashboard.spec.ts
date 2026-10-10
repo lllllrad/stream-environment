@@ -38,6 +38,30 @@ async function seed(request: APIRequestContext, name = 'normal') {
 }
 async function login(page: Page, content = true) { await page.goto('/admin'); await page.getByLabel('운영자 키').fill(token); await page.getByRole('button', {name:'운영 화면 열기'}).click(); await expect(page.getByRole('heading',{name:'오버레이 편집',exact:true})).toBeVisible(); if(content) { await page.getByRole('button',{name:'내용 관리',exact:true}).click(); await expect(page.getByRole('heading',{name:'내용 관리',exact:true})).toBeVisible(); } }
 
+test('source policy UI blocks producer apply and separate scoped token controls a scene and status widget without review',async({page,request,context})=>{
+  const fixture=await seed(request,'normal'),original=(await api(request,'/admin/overlays')).config,layout=original.layouts.find((l:any)=>l.overlayId==='overlay-1920x1080'&&l.sceneId==='break'),source=(await api(request,'/sources')).sources.find((s:any)=>s.id==='now');let controllerId='';const display=await context.newPage();
+  try{
+    await login(page,false);await page.getByRole('button',{name:'생산자',exact:true}).click();const policy=page.getByLabel('현재 활동 게시 정책');await expect(policy).toHaveValue(source.policy);await policy.selectOption('proposal_only');await expect(page.getByRole('status')).toContainText('소스 게시 정책을 변경했습니다');
+    const session=await api(request,`/sessions/${fixture.session.id}/context`),command={schemaVersion:'1.0',requestId:randomUUID(),sessionId:session.id,baseRevision:session.revision,intent:'apply',provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'Synthetic policy check'},operations:[{op:'set_now',value:{title:'Reviewed source proposal',detail:'Synthetic content',status:'preparing',next:null}}]};
+    const blocked=await request.post(`/api/v1/sessions/${session.id}/changes`,{headers:{Authorization:`Bearer ${fixture.producer.token}`},data:command});expect(blocked.status()).toBe(403);expect((await blocked.json()).error.code).toBe('SOURCE_REVIEW_REQUIRED');
+    const proposal=await api(request,`/sessions/${session.id}/changes`,{...command,requestId:randomUUID(),intent:'propose'},fixture.producer.token);expect(proposal.outcome).toBe('proposed');
+    await page.getByLabel('제어 토큰 이름').fill('Browser scene control');await page.getByLabel('씬 제어 자리 비움',{exact:true}).check();await page.getByLabel('위젯 제어 1080p / 자리 비움 / away',{exact:true}).check();await page.getByRole('button',{name:'제어 토큰 발급',exact:true}).click();
+    const secret=page.getByLabel('발급된 자격 증명');await expect(secret).toBeVisible();const token=await secret.inputValue();await page.keyboard.press('Escape');
+    controllerId=(await api(request,'/admin/controllers')).items.find((c:any)=>c.name==='Browser scene control').id;
+    let control=await api(request,'/control/context',undefined,token);expect(control.widgets).toHaveLength(1);expect(control.scenes.map((s:any)=>s.id)).toEqual(['break']);
+    await api(request,'/control/widgets',{requestId:randomUUID(),expectedConfigRevision:control.configRevision,overlayId:layout.overlayId,sceneId:layout.sceneId,widgetId:'away',visible:true,settings:{message:'Direct status from another system',detail:'No proposal review needed'}},token);
+    control=await api(request,'/control/context',undefined,token);await api(request,'/control/scene',{requestId:randomUUID(),expectedConfigRevision:control.configRevision,sceneId:'break'},token);
+    await display.goto(`/display/${layout.overlayId}`);await expect(display.locator('[data-widget="away"]')).toContainText('Direct status from another system');
+    expect((await api(request,'/admin/state')).proposals.map((p:any)=>p.id)).toContain(proposal.proposalId);
+    const card=page.getByRole('article',{name:'제어 토큰 Browser scene control',exact:true});await expect(card).toBeVisible();await page.locator('.access-settings').first().screenshot({path:'artifacts/source-publication-policies.png'});await page.locator('.access-settings').nth(1).screenshot({path:'artifacts/direct-control-token.png'});
+    await card.getByRole('button',{name:'제어 토큰 폐기',exact:true}).click();await expect(card).toContainText('폐기됨');const revoked=await request.get('/api/v1/control/context',{headers:{Authorization:`Bearer ${token}`}});expect(revoked.status()).toBe(401);
+  }finally{
+    await display.close();let c=await api(request,'/admin/control');await api(request,'/admin/source-policies',{expectedControlRevision:c.controlRevision,sourceId:'now',policy:source.policy});
+    let config=(await api(request,'/admin/overlays')).config;await api(request,'/admin/layouts',{expectedRevision:config.revision,overlayId:layout.overlayId,sceneId:layout.sceneId,widgets:layout.widgets});config=(await api(request,'/admin/overlays')).config;await api(request,'/admin/scene',{expectedRevision:config.revision,sceneId:original.activeSceneId});
+    if(controllerId&&(await api(request,'/admin/controllers')).items.some((item:any)=>item.id===controllerId&&!item.revoked)){c=await api(request,'/admin/control');await api(request,`/admin/controllers/${controllerId}/revoke`,{expectedControlRevision:c.controlRevision});}
+  }
+});
+
 test('operator starts in the overlay editor and compact navigation retains an accessible icon',async({page,request})=>{
   await seed(request,'normal'); await login(page,false);
   await expect(page.getByLabel('오버레이',{exact:true})).toBeVisible();

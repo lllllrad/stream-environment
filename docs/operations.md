@@ -45,11 +45,15 @@ If a disconnected OBS source continues to show unsafe text, turn off the source'
 
 ## Producers and review
 
-Register each client with the narrowest session, operation, and field grants it needs. Automatic publication is opt-in in the registration UI; an authorized publishing producer must also submit `disclosure: public`. Otherwise use `intent: propose`. Private/unknown provenance never silently falls back from a rejected apply to a proposal.
+Register each client with the narrowest session, operation, and field grants it needs. All content sources default to proposal-only, including for existing publishing producers. Explicitly allow only the needed sources in **Data source publication policy** within Producers. Automatic publication also requires opt-in on producer registration and `disclosure: public`. Otherwise use `intent: propose`. Private/unknown provenance never silently falls back from a rejected apply to a proposal.
 
 Tokens are displayed once; store them in the client's secret store. Revoke a token from **Producers** to immediately block reads, writes, and receipt replays. The server stores hashes, not plaintext tokens. A heartbeat reports connectivity, while `observedAt` describes content freshness. Idle content does not imply a disconnected client. Send heartbeats every five seconds when connected.
 
 Review compares proposed values against current values. Open **Broadcast layout preview**, select an overlay and scene, and compare current editorial content against the proposed result, including measured visibility. It is a private hypothetical preview, including while outputs are held/hidden; opening it never publishes or approves the proposal. Stale proposals are simulated against the latest session revision without altering their original base revision. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
+
+## Direct broadcast control
+
+Use **Direct control tokens** in Producers to issue a separate credential for selected scene destinations and opted-in widget instances. These changes require no review and retain Hold/Hidden; they work independently of the producer AI write gate. Away is initially eligible for visibility and caption changes. Revoke control credentials separately from producers. See [source policies, token scope and HTTP examples](direct-control.md).
 
 ## Public output and reconnect
 
@@ -70,7 +74,7 @@ To restore:
 3. In a new private data directory, copy the chosen consistent backup as `dashboard.db`. Do not copy WAL/SHM files from a different database snapshot.
 4. Preserve the intended operator credential, or supply a new `ADMIN_TOKEN` of at least 24 characters. Set `DATA_DIR` to that directory and restart.
 5. Confirm session, locks, hold/hidden state, latest public revision, and storage readiness. Review the next snapshot before resuming publication.
-6. Revoke/reissue producer tokens whose security state may have changed since the backup. Restoring an old backup can restore older producer revocation state. Outputs remain public; obsolete output credentials are removed at startup.
+6. Revoke/reissue producer and controller tokens whose security state may have changed since the backup. Restoring an old backup can restore older credential revocation state and source policy overrides. Outputs remain public; obsolete output credentials are removed at startup.
 
 Use `/health/live` for process liveness and `/health/ready` for SQLite readiness. Storage failures reject complete commands; they do not publish partial changes. Receipt retries recover committed requests after a lost response.
 

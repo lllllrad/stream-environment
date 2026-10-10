@@ -206,3 +206,5 @@ a { color: inherit; text-decoration: none; }
 .layout-proposal-card dt { color: var(--muted); }
 .layout-proposal-card dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width:760px) { .content-grid { grid-template-columns: 1fr; } }
+
+.access-settings{padding:24px;margin-bottom:20px}.source-policy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.access-settings fieldset{border:0;padding:0;min-width:0}.access-settings h3{margin-top:20px}.controller-targets{display:grid;gap:8px;max-height:260px;overflow:auto}.controller-list{display:grid;gap:16px;margin-top:20px}.controller-list article{border-top:1px solid #35423b;padding-top:16px}.controller-list p{overflow-wrap:anywhere}

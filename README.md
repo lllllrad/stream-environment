@@ -66,6 +66,7 @@ just run              # Build and start the dashboard
 - Private exact-size browser inspection over HTTP/MCP: actual visible Unicode ranges, font sizes, rectangles, clipping, occlusion and optional PNG, with producer field scopes preserved.
 - Manual edits with persistent server-enforced field locks, explicit unlock, event/work correction and withdrawal, pinned notice expiry, and work selection.
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
+- Proposal-only source defaults with explicit operator automatic-publication overrides, independent of widget visibility. Separate scoped controller tokens for review-free scene switching and opted-in widget settings; see [direct control](docs/direct-control.md).
 - Per-producer session/operation/field grants, proposal-only clients, review comparisons and rendered proposal previews, stale/disclosure acknowledgments, credential revocation, and anonymous read-only OBS outputs.
 - SQLite transactions for state, audit deltas, receipts, and per-output public snapshots; canonical idempotency, revision checks, observation ordering, atomic batches, and safe restart recovery.
 - Anonymous read-only outputs, latest-state SSE reconnect, bounded content leases, plain-text rendering, request limits, and producer rate limits.
@@ -96,7 +97,7 @@ pnpm demo --exercise
 pnpm demo --end
 ```
 
-Demo URLs and producer credentials are written to private `.data` files instead of console logs. An existing active session is never automatically replaced. The exercise ends with all outputs hidden and the current activity locked, so the operator can review recovery. See [the client guide](docs/client-guide.md).
+Demo URLs and producer credentials are written to private `.data` files instead of console logs. An existing active session is never automatically replaced. Before the exercise, explicitly allow automatic publication for `now` and `events` in Producers and unlock the seed-approved current activity. The script leaves source policies unchanged. The exercise ends with all outputs hidden and the current activity locked, so the operator can review recovery. See [the client guide](docs/client-guide.md).
 
 For another fixture: `pnpm demo --scenario tentative` (also `empty`, `minimal`, `normal`, `maximum`, `optional_none`, `failed`, and `hidden`). Finish the current demo before starting another.
 
@@ -111,7 +112,7 @@ The soak runs a separate local SQLite server, three output pages and one operato
 
 ## Contracts and operations
 
-AI agents can fetch the single-file OpenAPI 3.1 specification at `http://<dashboard-computer-IP>:4310/openapi.json` without a token. The served document uses that dashboard origin for `servers[0].url`, includes all schemas, stable operation IDs, and proposal/apply request examples. API calls still require a registered producer bearer token. See [OpenAPI discovery and import](docs/client-guide.md#openapi-discovery-and-import).
+AI agents can fetch the single-file OpenAPI 3.1 specification at `http://<dashboard-computer-IP>:4310/openapi.json` without a token. The served document uses that dashboard origin for `servers[0].url`, includes all schemas, stable operation IDs, and proposal/apply request examples. Producer API calls require a registered producer bearer token; Direct control operations require a separate scoped controller token. See [OpenAPI discovery and import](docs/client-guide.md#openapi-discovery-and-import).
 
 - [OpenAPI](contracts/openapi.json), [ChangeSet](contracts/change-set.schema.json), [public snapshot](contracts/public-snapshot.schema.json), [receipt](contracts/change-receipt.schema.json), [error](contracts/error.schema.json), and [session export](contracts/session-export.schema.json).
 - [Client guide](docs/client-guide.md) and [error recovery](docs/errors.md).
@@ -128,6 +129,6 @@ Actual OBS capture, the ten-second viewer-comprehension goal, and the full eight
 
 ## External content proposals with MCP
 
-Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_context`, `get_layouts`, `render_preview`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
+Register a producer in the operator UI, leave automatic publication disabled for reviewed suggestions, and grant the content fields it needs. Launch `node scripts/mcp.ts` from a local MCP host with `DASHBOARD_URL` and `DASHBOARD_PRODUCER_TOKEN`. The adapter exposes `get_capabilities`, `get_sources`, `get_context`, `get_layouts`, `render_preview`, `validate`, `propose`, `apply` and `heartbeat`, using the same authenticated HTTP command handler as other clients. See [MCP setup and actual content examples](docs/mcp.md).
 
 The requirements already cover current activity, recap, events, notices and session wording proposals (sections 8–9), independently of reported work items. The optional adapter from section 10.2 is now implemented. Operator approval controls publication; public OBS pages require no login.

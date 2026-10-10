@@ -37,6 +37,7 @@ The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelco
 | Tool | Input | Result and effect |
 | --- | --- | --- |
 | `get_capabilities` | `{}` | Producer role, field/operation grants, publication and layout proposal grants, text limits |
+| `get_sources` | `{}` | Installed content sources and effective publication policies; all built-ins default to `proposal_only` |
 | `get_context` | `{}` or `{ "sessionId": "session_..." }` | `{ "session": <scope-filtered context> }`, or `session: null` without an active session |
 | `get_layouts` | `{}` | Fixed overlay resolutions, scenes, complete layout geometry/order and widget settings; no session text |
 | `validate_layout` | Full LayoutChange with `intent: "propose"` | Read-only layout validation; requires `canProposeLayouts` |
@@ -48,7 +49,7 @@ The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelco
 | `apply` | Full ChangeSet with `intent: "apply"` | Public update only when all server permissions and publication conditions hold |
 | `heartbeat` | `{}` | Connectivity signal; no content or public revision change |
 
-Successful calls return both JSON text and `structuredContent`. Dashboard failures set `isError: true` and preserve the HTTP error's code, paths, current revision, retryability and recovery advice. SDK input-shape failures are MCP tool errors before HTTP submission. The tool name enforces the corresponding intent; no silent conversion between `apply` and `propose` occurs. Operator lifecycle, approval, locks, credentials, audit and output controls are not MCP tools.
+Successful calls return both JSON text and `structuredContent`. Dashboard failures set `isError: true` and preserve the HTTP error's code, paths, current revision, retryability and recovery advice. SDK input-shape failures are MCP tool errors before HTTP submission. The tool name enforces the corresponding intent; no silent conversion between `apply` and `propose` occurs. Operator lifecycle, approval, locks, credentials, audit and output controls are not MCP tools. Separate scoped controller tokens use the HTTP [direct control API](direct-control.md); the producer adapter does not accept them.
 
 ## Suggest layouts
 
@@ -64,7 +65,7 @@ Suggested client instruction:
 
 > Suggest concise, factual wording that helps a viewer understand the current activity and its context. Use `set_now` for the current activity, `update_session.fields.recap` for accumulated context, `upsert_event` for a reported decision/result and `set_pin` for a viewer notice. Read granted fields and context first. Submit a proposal for operator review. Preserve uncertainty, provenance and stable event IDs. Do not execute tasks or infer completion without evidence.
 
-`sourceRefs` contain only opaque evidence IDs. Public provenance is a declaration, not a publication permission. Unknown/restricted sources can be proposed but require the operator's explicit disclosure approval. In the **Proposals** page the operator compares current and suggested values and can open a rendered before/after preview for each overlay and scene, reviews stale content and approves or rejects. Approval locks affected fields. Normal publication then updates the anonymous OBS pages; hold and hidden modes continue to apply.
+`sourceRefs` contain only opaque evidence IDs. Public provenance is a declaration, not a publication permission. Producer `apply`, apply-intent validation and rendering require `apply_allowed` for every affected content source plus the producer automatic publication grant. Read `get_sources` first; proposals remain the default. Unknown/restricted sources can be proposed but require the operator's explicit disclosure approval. In the **Proposals** page the operator compares current and suggested values and can open a rendered before/after preview for each overlay and scene, reviews stale content and approves or rejects. Approval locks affected fields. Normal publication then updates the anonymous OBS pages; hold and hidden modes continue to apply.
 
 ## Recovery
 

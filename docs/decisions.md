@@ -9,7 +9,7 @@ The supplied requirements describe the product, not instructions for the develop
 | Transport | HTTP commands and complete public snapshots over SSE. Reconnect always starts from the latest snapshot. |
 | Defaults | Three independent outputs: `main-full`, `main-side`, and `main-lower`. Empty initial state; demo content is explicitly opt-in. |
 | Deployment | Bind to `0.0.0.0` by default for agents on other computers; `BIND_ADDRESS` can restrict interfaces. Host must match the receiving interface IP, localhost, or explicit `ALLOWED_HOSTS`; browser Origin must match Host. Authentication remains enforced, with no CORS wildcard, proxy trust, TLS listener or tunnel. |
-| Authentication | Operator bearer credential exchanged for an HttpOnly cookie plus CSRF token; producer bearer tokens; anonymous read-only display pages, snapshots and SSE per the user's follow-up request. Only operator/producer token hashes are stored in SQLite. |
+| Authentication | Operator bearer credential exchanged for an HttpOnly cookie plus CSRF token; producer bearer tokens; separate scoped controller bearer tokens; anonymous read-only display pages, snapshots and SSE per the user's follow-up request. Only credential hashes are stored in SQLite. |
 | Dependencies | Exact package versions and a pnpm lockfile; no runtime LLM calls, external fonts, or remotely loaded assets. |
 | Follow-up scope | Fixed-resolution overlays and editable scene layouts supersede the original deferred arbitrary-layout scope. Links/images/QR, numeric progress, activity templates and real work execution remain deferred. |
 | Overlay model | One overlay per unique resolution, one layout per overlay/scene pair, a global active application scene and ordered widget instances. OBS scenes and session status remain independent. |
@@ -35,3 +35,7 @@ Private operator proposal previews simulate the same domain candidate used for a
 ## Session content export
 
 The P1 session-record export is implemented as an authenticated operator download in JSON or Markdown. It serializes an explicit content/metadata whitelist, all non-retracted visible items and unexpired notices. Held/hidden stored edits are included and labeled as editorial content; this does not claim publication history. Original wording is preserved, while generated Markdown structure is English and stored punctuation is escaped. Private operational data is excluded rather than hidden in the file. Exports do not change revisions or publication and are separate from restorable SQLite backups.
+
+## Source policy and direct control boundary
+
+Producer publication follows independent trusted content-source policies, defaulting to reviewed proposals. Explicit operator overrides and producer publication grants must both allow every affected path; widget placement cannot bypass that rule. Controller credentials have a separate role and HTTP authentication branch, outside the producer/operator Actor union. They permit only exact scene destinations and eligible widget-instance visibility/plugin setting patches. They cannot restore publication, modify content sources or replace layouts. Hold/Hidden remain independent, while the producer-write gate does not stop explicitly authorized direct broadcast control. See [the API and extension guide](direct-control.md).

@@ -26,8 +26,8 @@ try {
   const context = await browser.newContext({timezoneId:'Asia/Seoul'});
   const pages = [];
   for (const preset of ['full','side','lower'] as const) { const p = await context.newPage(); const [width,height] = DIMENSIONS[preset]; await p.setViewportSize({width,height}); await p.goto(`${base}/display/main-${preset}`); pages.push(p); }
-  const admin = await context.newPage(); await admin.goto(`${base}/admin`); await admin.getByLabel('운영자 키').fill(token); await admin.getByRole('button',{name:'컨트롤 룸 열기'}).click();
-  await admin.getByRole('heading',{name:'컨트롤 룸',exact:true}).waitFor();
+  const admin = await context.newPage(); await admin.goto(`${base}/admin`); await admin.getByLabel('운영자 키').fill(token); await admin.getByRole('button',{name:'운영 화면 열기'}).click();
+  await admin.getByRole('heading',{name:'오버레이 편집',exact:true}).waitFor();
   const metrics = await Promise.all([...pages,admin].map(async page => {const client=await context.newCDPSession(page);await client.send('Performance.enable');return client;}));
   const latencies: number[] = [], memory: {second:number;rss:number;heap:number;nodes:number[];browserJsHeap:number[]}[] = [];
   const start = performance.now(), cpuStart = process.cpuUsage(); let updates = 0;

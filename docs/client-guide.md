@@ -8,7 +8,7 @@ Layout edits have a separate reviewed protocol with an explicit producer grant. 
 
 For clients on another computer, use `http://<dashboard-computer-IP>:4310/api/v1` as the base URL. The server binds to `0.0.0.0` by default; a DNS/computer name needs an `ALLOWED_HOSTS` entry. See [network deployment](operations.md#deployment-boundary). The example below uses localhost for a client running on the dashboard computer.
 
-Use a producer token issued by the operator, with `Authorization: Bearer <token>`. Read `/api/v1/capabilities` to discover granted operations, fields, code-point limits, and contract version. Read `/api/v1/sessions/current`, then that session's `/context`. The response filters fields to your grants and gives the session revision and protected lock paths.
+Use a producer token issued by the operator, with `Authorization: Bearer <token>`. Read `/api/v1/capabilities` to discover granted operations, fields, code-point limits, source policies and contract version. All sources default to proposal-only. Read `/api/v1/sources` for effective policies. Read `/api/v1/sessions/current`, then that session's `/context`. The response filters fields to your grants and gives the session revision and protected lock paths.
 
 Submit one logical update to `/api/v1/sessions/{id}/changes`, matching its path/body session ID and the context's `baseRevision`. Use the shared [ChangeSet schema](../contracts/change-set.schema.json). Read the [example request](../examples/public-change.json) and [receipt](../examples/applied-receipt.json).
 
@@ -24,7 +24,7 @@ const command = {
   requestId: crypto.randomUUID(),
   sessionId: context.id,
   baseRevision: context.revision,
-  intent: 'apply',
+  intent: 'propose',
   provenance: {
     disclosure: 'public',
     observedAt: new Date().toISOString(),
@@ -65,11 +65,12 @@ curl --fail --silent --show-error http://192.168.1.20:4310/openapi.json -o dashb
 
 In Windows PowerShell, use `curl.exe` for this command. The committed [OpenAPI file](../contracts/openapi.json) is also available for offline import; its relative server URL `/` must be resolved against the dashboard origin or overridden in the importer. `just contracts` regenerates it from the shared schemas and English request examples. Restart the dashboard after changing generated contracts to refresh the served document.
 
-For actual requests, configure `Authorization: Bearer <registered-producer-token>` privately in the client. Use the **Producer** tag to select AI integration operations; **Operator** operations require an operator credential and are unavailable to producer tokens. Schema discovery does not grant access to any protected operation.
+For actual requests, configure `Authorization: Bearer <registered-producer-token>` privately in the client. Use the **Producer** tag to select AI integration operations; **Operator** operations require an operator credential and are unavailable to producer tokens. The **Direct control** tag requires a separate scoped controller token; see [source policies and direct control](direct-control.md). Schema discovery does not grant access to any protected operation.
 
 | Operation ID | Purpose |
 | --- | --- |
 | `getCapabilities` | Discover granted operations, field scopes, publication permission and limits |
+| `getSources` | Discover installed sources and effective proposal/automatic publication policies |
 | `getCurrentSession` | Find the active session; a null session means the operator has not activated one |
 | `getSessionContext` | Read scoped content and its current revision |
 | `validateChanges` | Compare a candidate without creating content, a proposal or a receipt |
@@ -80,7 +81,7 @@ The validation and submission operations include `proposal` and `apply` request 
 
 ## Publication and uncertainty
 
-`disclosure: public` is a declaration, not a permission grant. Auto-apply additionally requires registered publishing permission, granted fields/operations, the current session, a normal revision, no locks, valid content, and an allowed observation time. An unknown/restricted source uses `intent: propose` and waits for explicit operator review. Mixing sources keeps the most restrictive classification; paraphrasing does not make private information public.
+`disclosure: public` is a declaration, not a permission grant. Auto-apply additionally requires `apply_allowed` policies for all affected content sources, registered publishing permission, granted fields/operations, the current session, a normal revision, no locks, valid content, and an allowed observation time. An unknown/restricted source uses `intent: propose` and waits for explicit operator review. Mixing sources keeps the most restrictive classification; paraphrasing does not make private information public.
 
 Use plain text. Keep it short and factual. Reflect activities/decisions/results actually reported or verified. Use `certainty: tentative` for uncertain event interpretations; the output labels them as under review. Do not report work completion without evidence. `succeeded` is a producer report, not proof that work was actually performed.
 
@@ -114,7 +115,7 @@ Keep tokens out of URLs, logs, frontend bundles, and public text. `sourceRefs` a
 
 ## Account-free demo
 
-`pnpm demo` creates a synthetic session and restricted-to-that-session publishing producer. It writes `.data/demo-producer.json` and `.data/demo-outputs.json` privately. It refuses to replace an existing running session. `pnpm demo --exercise` demonstrates receipt replay, conflicting request IDs, server locks, proposals, held changes, withdrawal, and emergency hide. It deliberately leaves a locked activity and hidden outputs for review. `pnpm demo --end` ends only the recorded currently active demo session.
+`pnpm demo` creates a synthetic session and restricted-to-that-session publishing producer. It writes `.data/demo-producer.json` and `.data/demo-outputs.json` privately. Synthetic seed content is submitted as a producer proposal and explicitly approved using the operator credential, without changing source policies. It refuses to replace an existing running session. Before `--exercise`, explicitly enable automatic publication for `now` and `events` in Producers and unlock any seed-approved `/now` field; the script never changes source policies. `pnpm demo --exercise` demonstrates receipt replay, conflicting request IDs, server locks, proposals, held changes, withdrawal, and emergency hide. It deliberately leaves a locked activity and hidden outputs for review. `pnpm demo --end` ends only the recorded currently active demo session.
 
 ## Content suggestions are not limited to work items
 
