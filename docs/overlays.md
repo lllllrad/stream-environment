@@ -80,6 +80,8 @@ At most two inspections run concurrently. `RENDER_BUSY` returns 429; `RENDER_UNA
 
 ## Adding trusted widget plugins
 
+For a researched design that combines multiple public sources in one automatically arranged widget, see [Multi-source panel widget proposal](widget-composition.md). This is a proposal; configurable panels are not implemented.
+
 Create a TypeScript module implementing `WidgetPlugin` in `src/widgets`, following `away.ts`, and register it in `registry.ts`. Declare a unique type, version, operator UI label, English description, source paths, supported settings keys, defaults and a pure `project(context, settings)` function returning plain-text blocks with stable content paths and heading/body/label roles. The core builds layouts, scopes blocks, validates geometry and renders declared blocks without branching on widget types. `away.ts` is an independently registered status plugin demonstrating the extension contract.
 
 Plugins are trusted build-time code, installed by a repository change and rebuild. There is no runtime arbitrary-code upload, plugin marketplace, external URL fetching or task execution. Use the public-shaped context supplied by the registry; it excludes credentials, audit, proposals and provenance. Blocks must refer to their real content grant paths; static operator captions use `/widget/...` paths. Widgets needing new setting shapes or custom non-text rendering should explicitly extend the validated contract/shared renderer and tests. The initial extension interface supplies the existing text presentation settings rather than arbitrary per-plugin schemas.
