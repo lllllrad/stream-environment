@@ -6,7 +6,8 @@ import { createRoot } from 'react-dom/client';
 import type { Actor, Audit, Control, Operation, Proposal, ProposalPreview, PublicSnapshot, Session } from '../contracts/types.ts';
 import { ScaledPreview, STATUS, time } from './renderer.tsx';
 import './admin.css';
-import { OverlayEditor, MeasuredPreview } from './overlay-editor.tsx';
+import { OverlayEditor } from './overlay-editor.tsx';
+import { ProposalScreen } from './proposal-screen.tsx';
 import type { OverlayConfig } from '../contracts/overlay.ts';
 import type { LayoutProposal } from '../contracts/layout-proposals.ts';
 import { LayoutProposalCard } from './layout-proposal-card.tsx';
@@ -189,22 +190,23 @@ function ProposalVisual({ proposalId, sessionRevision, controlRevision }: { prop
   const [config,setConfig]=useState<OverlayConfig|null>(null),[scene,setScene]=useState(''),[screen,setScreen]=useState('');
   useEffect(()=>{let cancelled=false;void api<{config:OverlayConfig}>('/admin/overlays').then(r=>{if(cancelled)return;setConfig(r.config);setScene(r.config.activeSceneId);setScreen(r.config.overlays[0].id);}).catch(e=>{if(!cancelled)setError(e.message);});return()=>{cancelled=true;};},[]);
   const [preview, setPreview] = useState<ProposalPreview | null>(null), [error, setError] = useState('');
+  const [published,setPublished]=useState<PublicSnapshot|null>(null);
+  const previewTarget=useRef('');
   useEffect(() => {
     if (!screen || !scene) return;
-    let cancelled = false; setPreview(null); setError('');
-    const load = () => void api<ProposalPreview>(`/admin/proposals/${proposalId}/preview?screenId=${screen}${scene?'&sceneId='+encodeURIComponent(scene):''}`).then(value => {
+    let cancelled = false;const target=JSON.stringify([proposalId,screen,scene]);if(previewTarget.current!==target){setPreview(null);setPublished(null);previewTarget.current=target;}setError('');
+    const load = () => void Promise.all([api<ProposalPreview>(`/admin/proposals/${proposalId}/preview?screenId=${screen}${scene?'&sceneId='+encodeURIComponent(scene):''}`),api<PublicSnapshot>(`/display/${screen}/snapshot`)]).then(([value,output]) => {
       if (cancelled) return;
       if (value.sessionRevision !== sessionRevision) { setError('내용이 변경되었습니다. 최신 내용을 다시 읽어주세요.'); return; }
-      setError(''); setPreview(value);
+      setError(''); setPreview(value);setPublished(output);
     }).catch(e => { if (!cancelled) setError(e.message); });
     load(); const timer = setInterval(load, 5000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [proposalId, screen, scene, sessionRevision, controlRevision]);
-  const width = 480;
-  return <section className="proposal-visual" aria-label="제안 송출 미리보기"><div className="proposal-visual-toolbar"><div><h4>승인 시 표시될 가상 화면</h4><p>운영자 검토용이며 실제 송출에는 반영되지 않습니다.</p></div></div>{config && <div className="overlay-toolbar"><label>오버레이 미리보기<select aria-label="제안 오버레이" value={screen} onChange={e=>setScreen(e.target.value)}>{config.overlays.map(o=><option key={o.id} value={o.id}>{o.name} · {o.width} × {o.height}</option>)}</select></label><label>씬<select aria-label="제안 씬" value={scene} onChange={e=>setScene(e.target.value)}>{config.scenes.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label></div>}{error ? <p role="alert">{error}</p> : !preview ? <p role="status">미리보기를 불러오는 중…</p> : <><p className="muted">검토 REV {preview.sessionRevision}{preview.stale ? ' · 오래된 제안을 최신 내용과 합쳐 비교합니다.' : ''}{preview.publication === 'held' ? ' · 현재 게시 보류 중이며 승인해도 바로 송출되지 않습니다.' : preview.publication === 'hidden' ? ' · 현재 출력 숨김 중이며 승인해도 바로 송출되지 않습니다.' : preview.publication === 'not_applicable' ? ' · 현재 송출 세션이 아닙니다.' : ''}</p><div className="proposal-visual-columns"><div><h5>현재 저장된 내용</h5><MeasuredPreview snapshot={preview.before} width={width}/></div><div><h5>제안 적용 후</h5><MeasuredPreview snapshot={preview.after} width={width}/></div></div></>}</section>;
+  return <section className="proposal-visual" aria-label="제안 송출 미리보기"><div className="proposal-visual-toolbar"><div><h4>제안 화면 검토</h4><p>운영자 검토용이며 실제 송출에는 반영되지 않습니다.</p></div></div>{config && <div className="overlay-toolbar"><label>오버레이 미리보기<select aria-label="제안 오버레이" value={screen} onChange={e=>setScreen(e.target.value)}>{config.overlays.map(o=><option key={o.id} value={o.id}>{o.name} · {o.width} × {o.height}</option>)}</select></label><label>씬<select aria-label="제안 씬" value={scene} onChange={e=>setScene(e.target.value)}>{config.scenes.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label></div>}{error ? <p role="alert">{error}</p> : !preview ? <p role="status">미리보기를 불러오는 중…</p> : <><p className="muted">검토 REV {preview.sessionRevision}{preview.stale ? ' · 오래된 제안을 최신 내용과 합쳐 비교합니다.' : ''}{preview.publication === 'held' ? ' · 현재 게시 보류 중이며 승인해도 바로 송출되지 않습니다.' : preview.publication === 'hidden' ? ' · 현재 출력 숨김 중이며 승인해도 바로 송출되지 않습니다.' : preview.publication === 'not_applicable' ? ' · 현재 송출 세션이 아닙니다.' : ''}</p><ProposalScreen before={preview.before} after={preview.after} published={published}/></>}</section>;
 }
 function ProposalCard({ proposal: p, controlRevision, session, review, loadSession, busy }: { proposal: Proposal; controlRevision: number; session: Session | null; review: (decision: string, opts: { expectedRevision: number; acknowledgeStale: boolean; allowDisclosure: boolean }) => Promise<void>; loadSession: () => Promise<Session>; busy: boolean }) {
-  const [current, setCurrent] = useState(session), [staleReviewed, setStaleReviewed] = useState(false), [disclosureReviewed, setDisclosureReviewed] = useState(false), [error, setError] = useState(''), [showVisual, setShowVisual] = useState(false);
+  const [current, setCurrent] = useState(session), [staleReviewed, setStaleReviewed] = useState(false), [disclosureReviewed, setDisclosureReviewed] = useState(false), [error, setError] = useState(''), [showVisual, setShowVisual] = useState(true);
   useEffect(() => { if (session) { setCurrent(session); setStaleReviewed(false); } else void loadSession().then(setCurrent).catch(e => setError(e.message)); }, [session?.revision]);
   const stale = current?.revision !== p.change.baseRevision;
   const value = (op: Operation): unknown => { if (!current) return null; if (op.op === 'set_now') return current.now; if (op.op === 'set_pin') return current.pin; if (op.op === 'update_session') return Object.fromEntries(Object.keys(op.fields).map(k => [k,(current as any)[k]])); if (op.op === 'upsert_event' || op.op === 'retract_event') return current.events.find(e => e.id === ('id' in op ? op.id : op.event.id)); return current.workItems.find(w => w.id === ('id' in op ? op.id : op.workItem.id)); };

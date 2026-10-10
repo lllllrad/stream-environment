@@ -185,9 +185,19 @@ a { color: inherit; text-decoration: none; }
 .proposal-visual-toolbar { display: flex; align-items: start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .proposal-visual h4,.proposal-visual h5 { margin: 0 0 10px; }
 .proposal-visual p { font-size: 12px; line-height: 1.7; color: var(--muted); }
-.proposal-visual-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; overflow-x: auto; padding-bottom: 8px; }
-.proposal-visual-columns>div { min-width: max-content; }
-@media (max-width:1100px) { .proposal-visual-columns { grid-template-columns: 1fr; } }
+.proposal-screen { min-width: 0; }
+.proposal-screen-toolbar { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin:16px 0; }
+.proposal-screen-views { display:flex; flex-wrap:wrap; gap:6px; margin-right:auto; }
+.proposal-screen-views button[aria-pressed=true] { background:#31452c; border-color:#b8d99e; color:#e9f7df; }
+.proposal-screen-toolbar label { display:grid; gap:6px; font-size:12px; color:var(--muted); }
+.proposal-screen-toolbar select { padding:9px; border:1px solid var(--line); border-radius:5px; background:#18201a; color:var(--ink); }
+.proposal-screen-viewport { width:100%; max-height:65vh; overflow:auto; border:1px solid #475449; background:repeating-conic-gradient(#242b27 0 25%,#1d241f 0 50%) 0/24px 24px; }
+.proposal-screen-canvas { position:relative; overflow:hidden; }
+.proposal-screen-empty { position:absolute; inset:0; display:grid; place-content:center; color:#d4ded6; font-size:16px; }
+.proposal-screen-dialog { width:calc(100vw - 48px); max-width:1800px; max-height:calc(100vh - 48px); padding:24px; border:1px solid #475449; border-radius:10px; background:#111612; color:#e9f1e9; }
+.proposal-screen-dialog::backdrop { background:#000b; }
+.proposal-screen-dialog .proposal-screen-viewport { max-height:65vh; }
+.proposal-screen-dialog .visibility-details { max-height:16vh; overflow:auto; }
 .archive-filter { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
 .archive-filter>span { white-space: nowrap; }
 .archive-filter select { padding: 8px 10px; border-radius: 6px; background: #111612; color: var(--ink); border: 1px solid var(--line); }
