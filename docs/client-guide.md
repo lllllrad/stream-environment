@@ -2,6 +2,8 @@
 
 The dashboard receives structured, public-ready text. It does not summarize transcripts, listen to calls, fetch source URLs, execute work, or change streaming-platform state. HTTP is the core integration contract; the local stdio [MCP adapter](mcp.md) exposes the same content operations and review flow.
 
+Layout edits have a separate reviewed protocol with an explicit producer grant. See [AI layout proposals](layout-proposals.md) for validation, candidate geometry inspection, submission and decision status over HTTP/MCP. The content protocol below remains unchanged.
+
 ## Connection workflow
 
 For clients on another computer, use `http://<dashboard-computer-IP>:4310/api/v1` as the base URL. The server binds to `0.0.0.0` by default; a DNS/computer name needs an `ALLOWED_HOSTS` entry. See [network deployment](operations.md#deployment-boundary). The example below uses localhost for a client running on the dashboard computer.

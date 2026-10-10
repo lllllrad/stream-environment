@@ -21,6 +21,30 @@ async function setupHttp(options: {producerRate?:number;producerBurst?:number;al
   const publisher = engine.producer({ name: 'Publisher', canAutoPublish: true, allowedSessions: [session.id], allowedOperations: ['set_now','upsert_event'], allowedPaths: ['/now','/events/*'], expectedControlRevision: 1 });
   return { store, engine, app, base, call, token, session: engine.session(session.id), publisher, close: async () => { await app.close(); store.close(); } };
 }
+test('HTTP layout proposal grants, private review, status, CSRF and revision-bound approval',async()=>{
+  const x=await setupHttp();try{
+    const layout=x.engine.overlayConfig().layouts[0],widgets=structuredClone(layout.widgets);widgets[0].x=140;
+    const command={schemaVersion:'1.0',requestId:crypto.randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'HTTP layout suggestion'},widgets};
+    const before=x.engine.output(layout.overlayId);
+    assert.equal((await x.call('/api/v1/capabilities',undefined,x.publisher.token)).body.canProposeLayouts,false);
+    assert.equal((await x.call('/api/v1/layout-proposals',command,x.publisher.token)).status,403);
+    const login=await x.call('/api/v1/admin/login',{token:x.token},''),cookie=login.headers.get('set-cookie')!.split(';')[0],grant={expectedControlRevision:x.engine.control().controlRevision,canProposeLayouts:true};
+    assert.equal((await x.call(`/api/v1/admin/producers/${x.publisher.producer.id}/layout-grant`,grant,'',cookie)).status,403);
+    assert.equal((await x.call(`/api/v1/admin/producers/${x.publisher.producer.id}/layout-grant`,grant,'',cookie,login.body.csrfToken)).status,200);
+    assert.equal((await x.call('/api/v1/layout-proposals/validate',command,x.publisher.token)).status,200);assert.equal(x.store.list('layout-proposal:').length,0);
+    const receipt=await x.call('/api/v1/layout-proposals',command,x.publisher.token);assert.equal(receipt.status,200);const id=receipt.body.proposalId;
+    assert.deepEqual(x.engine.output(layout.overlayId),before);assert.equal((await x.call(`/api/v1/layout-proposals/${id}`,undefined,x.publisher.token)).body.status,'pending');
+    assert.equal((await x.call('/api/v1/admin/layout-proposals',undefined,x.publisher.token)).status,403);assert.equal((await x.call(`/api/v1/admin/layout-proposals/${id}/preview`,undefined,'')).status,401);
+    const p=(await x.call(`/api/v1/admin/layout-proposals/${id}/preview`)).body;
+    assert.equal(p.after.overlay.widgets[0].x,140);assert.equal((await x.call('/api/v1/admin/state')).body.layoutProposals.length,1);
+    const decision={decision:'approve',expectedProposalRevision:p.proposalRevision,expectedConfigRevision:p.configRevision,expectedLayoutRevision:p.layoutRevision,expectedControlRevision:p.controlRevision};
+    assert.equal((await x.call(`/api/v1/admin/layout-proposals/${id}/decision`,decision,x.publisher.token)).status,403);assert.equal((await x.call(`/api/v1/admin/layout-proposals/${id}/decision`,decision,'',cookie)).status,403);
+    assert.equal((await x.call(`/api/v1/admin/layout-proposals/${id}/decision`,{...decision,expectedLayoutRevision:10})).status,409);
+    assert.equal((await x.call(`/api/v1/admin/layout-proposals/${id}/decision`,decision,'',cookie,login.body.csrfToken)).body.status,'approved');assert.equal((await x.call(`/api/v1/display/${layout.overlayId}/snapshot`,undefined,'')).body.overlay.widgets[0].x,140);
+    assert.deepEqual((await x.call('/api/v1/layout-proposals',command,x.publisher.token)).body,receipt.body);
+  }finally{await x.close();}
+});
+
 test('HTTP: operator login, CSRF, producer isolation, anonymous public outputs, protected private APIs and Host/Origin checks', async () => {
   const x = await setupHttp();
   try {

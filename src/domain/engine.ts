@@ -7,6 +7,8 @@ import { filterHeld, project, samePublic } from './projection.ts';
 import type { OverlayConfig, RenderPreview } from '../contracts/overlay.ts';
 import { defaultOverlayConfig, defaultLayout, overlayPair, validatedWidgets, projectOverlay } from './overlays.ts';
 import { attachInspection } from './inspection.ts';
+import type { LayoutChange, LayoutProposal, LayoutProposalReceipt, LayoutProposalPreview } from '../contracts/layout-proposals.ts';
+import { parseLayoutChange, layoutChangedPaths } from './layout-proposals.ts';
 
 export const operator: Actor = { id: 'operator', role: 'operator' };
 const stamp = () => new Date().toISOString();
@@ -74,7 +76,75 @@ export class Engine {
     if(widgets!==undefined)layout.widgets=validatedWidgets(overlay,widgets);
     const c=this.control();return this.projected(c.activeSessionId?this.session(c.activeSessionId):undefined,this.output(overlayId),{...c,mode:'auto'},config,sceneId);
   }
-  renderPreview(actor:Actor,id:string,input:{overlayId:string;sceneId?:string;change?:unknown}):RenderPreview {
+  private layoutAuthor(actor:Actor):Actor {
+    if(actor.role==='operator')return actor;
+    const current=this.actor(actor.id);
+    ensure(current.canProposeLayouts===true,'LAYOUT_FORBIDDEN','This producer has no layout proposal grant.',403);
+    return current;
+  }
+  private prepareLayout(actor:Actor,raw:unknown):{change:LayoutChange;digest:string;receipt?:LayoutProposalReceipt} {
+    this.layoutAuthor(actor);const change=parseLayoutChange(raw),digest=hash(change);
+    const saved=this.store.get<{digest:string;receipt:LayoutProposalReceipt}>(`layout-receipt:${actor.id}:${change.requestId}`);
+    if(saved){ensure(saved.digest===digest,'IDEMPOTENCY_CONFLICT','This request ID was used for a different layout proposal.',409);return {change,digest,receipt:saved.receipt};}
+    ensure(actor.role==='operator'||this.control().aiWritesEnabled,'AI_WRITES_DISABLED','AI writes are disabled.',403);
+    const {overlay,layout}=overlayPair(this.overlayConfig(),change.overlayId,change.sceneId);
+    ensure(layout.revision===change.baseRevision,'LAYOUT_REVISION_CONFLICT','Layout changed. Inspect the latest layout before proposing.',409,[],layout.revision);
+    change.widgets=validatedWidgets(overlay,change.widgets);
+    ensure(layoutChangedPaths(change.overlayId,change.sceneId,layout.widgets,change.widgets).length,'NO_LAYOUT_CHANGE','The proposed layout is unchanged.');
+    return {change,digest};
+  }
+  validateLayoutProposal(actor:Actor,raw:unknown) {
+    const {change,receipt}=this.prepareLayout(actor,raw);
+    if(receipt)return {ok:true as const,receipt,replay:true as const};
+    const config=this.overlayConfig(),{layout}=overlayPair(config,change.overlayId,change.sceneId);
+    return {ok:true as const,change,configRevision:config.revision,layoutRevision:layout.revision,changedPaths:layoutChangedPaths(change.overlayId,change.sceneId,layout.widgets,change.widgets)};
+  }
+  proposeLayout(actor:Actor,raw:unknown):LayoutProposalReceipt {
+    return this.store.transaction(()=>{
+      const {change,digest,receipt}=this.prepareLayout(actor,raw);if(receipt)return receipt;
+      const pending=this.store.list<LayoutProposal>('layout-proposal:').filter(p=>p.status==='pending');
+      ensure(pending.length<128&&pending.filter(p=>p.actorId===actor.id).length<32,'PROPOSAL_LIMIT','Pending layout proposal limit reached.',429);
+      const {layout}=overlayPair(this.overlayConfig(),change.overlayId,change.sceneId);
+      const proposal:LayoutProposal={id:`layout_proposal_${randomUUID()}`,revision:0,status:'pending',actorId:actor.id,createdAt:stamp(),reviewedAt:null,change,baseWidgets:layout.widgets};
+      this.store.put(`layout-proposal:${proposal.id}`,proposal);
+      const result:LayoutProposalReceipt={ok:true,requestId:change.requestId,outcome:'proposed',proposalId:proposal.id,overlayId:change.overlayId,sceneId:change.sceneId,layoutRevision:layout.revision,publication:'not_applicable'};
+      this.store.put(`layout-receipt:${actor.id}:${change.requestId}`,{digest,receipt:result});
+      this.log(actor,null,null,`Layout proposed: ${change.provenance.reason}`,layoutChangedPaths(change.overlayId,change.sceneId,layout.widgets,change.widgets),change.requestId,'not_applicable');
+      if(actor.role==='producer')this.store.put(`producer:${actor.id}`,{...this.actor(actor.id),lastSeenAt:stamp(),lastObservedAt:change.provenance.observedAt,lastError:null});
+      return result;
+    });
+  }
+  readLayoutProposal(actor:Actor,id:string):LayoutProposal {
+    const p=this.store.get<LayoutProposal>(`layout-proposal:${id}`);ensure(p,'NOT_FOUND','Layout proposal not found.',404);
+    if(actor.role==='producer'){this.layoutAuthor(actor);ensure(p.actorId===actor.id,'FORBIDDEN','Producers can read only their own layout proposals.',403);}
+    return p;
+  }
+  layoutProposalPreview(id:string):LayoutProposalPreview {
+    const p=this.readLayoutProposal(operator,id);ensure(p.status==='pending','PROPOSAL_CONFLICT','Proposal is no longer pending.',409);
+    const {overlayId,sceneId,baseRevision,widgets}=p.change,config=this.overlayConfig(),{overlay,layout}=overlayPair(config,overlayId,sceneId),afterWidgets=validatedWidgets(overlay,widgets),control=this.control();
+    return {proposalId:id,proposalRevision:p.revision,configRevision:config.revision,layoutRevision:layout.revision,controlRevision:control.controlRevision,baseRevision,stale:baseRevision!==layout.revision,publication:sceneId===config.activeSceneId?this.publication():'not_applicable',changedPaths:layoutChangedPaths(overlayId,sceneId,layout.widgets,afterWidgets),beforeWidgets:layout.widgets,afterWidgets,before:this.layoutPreview(overlayId,sceneId),after:this.layoutPreview(overlayId,sceneId,afterWidgets)};
+  }
+  layoutDecision(id:string,input:{decision:string;expectedProposalRevision:number;expectedConfigRevision?:number;expectedLayoutRevision?:number;expectedControlRevision?:number;acknowledgeStale?:boolean;allowDisclosure?:boolean}):LayoutProposal {
+    return this.commit(()=>{
+      const p=this.readLayoutProposal(operator,id);ensure(p.status==='pending'&&p.revision===input.expectedProposalRevision,'PROPOSAL_CONFLICT','Proposal is no longer pending at this version.',409);
+      ensure(['approve','reject'].includes(input.decision),'SCHEMA_VALIDATION','Invalid review decision.');
+      ensure([input.acknowledgeStale,input.allowDisclosure].every(v=>v===undefined||typeof v==='boolean'),'SCHEMA_VALIDATION','Review acknowledgments must be boolean.');
+      if(input.decision==='approve'){
+        this.layoutAuthor(p.actorId===operator.id?operator:this.actor(p.actorId));
+        const config=this.overlayConfig(),{overlay,layout}=overlayPair(config,p.change.overlayId,p.change.sceneId);
+        ensure(config.revision===input.expectedConfigRevision,'OVERLAY_REVISION_CONFLICT','Overlay configuration changed since review. Refresh the preview.',409);
+        ensure(layout.revision===input.expectedLayoutRevision,'LAYOUT_REVISION_CONFLICT','Layout changed since review. Refresh the preview.',409,[],layout.revision);
+        this.checkControl(this.control(),input.expectedControlRevision!);
+        ensure(layout.revision===p.change.baseRevision||input.acknowledgeStale===true,'STALE_PROPOSAL','Compare this complete replacement with the latest layout before approving.',409);
+        if(p.change.provenance.disclosure!=='public')ensure(input.allowDisclosure===true,'DISCLOSURE_REVIEW_REQUIRED','Explicitly confirm that widget captions and settings are suitable for public display.');
+        const widgets=validatedWidgets(overlay,p.change.widgets),paths=layoutChangedPaths(p.change.overlayId,p.change.sceneId,layout.widgets,widgets);
+        if(paths.length){layout.widgets=widgets;layout.revision++;config.revision++;this.store.put('overlays',config);}
+        this.log(operator,null,null,`Approved layout proposal ${id}: ${p.change.provenance.reason}`,paths,p.change.requestId,p.change.sceneId===config.activeSceneId?this.publication():'not_applicable');
+      }else this.log(operator,null,null,`Rejected layout proposal ${id}`,['/layout-proposals'],p.change.requestId);
+      p.status=input.decision==='approve'?'approved':'rejected';p.revision++;p.reviewedAt=stamp();this.store.put(`layout-proposal:${id}`,p);return p;
+    });
+  }
+  renderPreview(actor:Actor,id:string,input:{overlayId:string;sceneId?:string;change?:unknown;widgets?:unknown}):RenderPreview {
     if(actor.role==='producer')actor=this.actor(actor.id);
     let session=this.readSession(actor,id);const revision=session.revision;let changedPaths:string[]=[];
     if(input.change!==undefined){
@@ -84,6 +154,7 @@ export class Engine {
     }
     const config=this.overlayConfig(),output=this.output(input.overlayId);ensure(output.overlayId,'INVALID_OVERLAY','Rendering inspection requires a full-canvas overlay.');
     const sceneId=input.sceneId??config.activeSceneId,hypothetical={...this.control(),mode:'auto' as const};
+    if(input.widgets!==undefined){this.layoutAuthor(actor);const {overlay,layout}=overlayPair(config,input.overlayId,sceneId);layout.widgets=validatedWidgets(overlay,input.widgets);changedPaths.push(...layoutChangedPaths(input.overlayId,sceneId,overlayPair(this.overlayConfig(),input.overlayId,sceneId).layout.widgets,layout.widgets));}
     return attachInspection({snapshot:this.projected(session,output,hypothetical,config,sceneId,actor),sessionRevision:revision,configRevision:config.revision,changedPaths,hypothetical:true},this.projected(session,output,hypothetical,config,sceneId).overlay!);
   }
   session(id: string): Session { const s = this.store.get<Session>(`session:${id}`); ensure(s, 'NOT_FOUND', 'Session not found.', 404); return s; }
@@ -262,9 +333,9 @@ export class Engine {
     });
   }
   publication(): 'published' | 'held' | 'hidden' { return this.control().mode === 'auto' ? 'published' : this.control().mode === 'hold' ? 'held' : 'hidden'; }
-  private log(actor: Actor, before: Session | null, after: Session | null, reason: string, paths: string[], requestId: string | null): void {
+  private log(actor: Actor, before: Session | null, after: Session | null, reason: string, paths: string[], requestId: string | null, publication?: string): void {
     const delta = (s: Session | null): Session | null => s ? { ...s, events: s.events.filter(e => paths.includes(`/events/${e.id}`)), workItems: s.workItems.filter(w => paths.includes(`/workItems/${w.id}`)), locks: s.locks.filter(l => paths.includes(l.path)) } : null;
-    this.store.audit({ sessionId: after?.id ?? before?.id ?? null, actorId: actor.id, reason, receivedAt: stamp(), requestId, revision: after?.revision ?? null, publication: after && this.control().activeSessionId !== after.id ? 'not_applicable' : this.publication(), changedPaths: paths, before: delta(before), after: delta(after) });
+    this.store.audit({ sessionId: after?.id ?? before?.id ?? null, actorId: actor.id, reason, receivedAt: stamp(), requestId, revision: after?.revision ?? null, publication: publication??(after && this.control().activeSessionId !== after.id ? 'not_applicable' : this.publication()), changedPaths: paths, before: delta(before), after: delta(after) });
   }
   contextFrom(actor: Actor, s: Session): unknown {
     if (actor.role === 'operator') return s;
@@ -303,20 +374,24 @@ export class Engine {
       return updated;
     });
   }
-  producer(input: { name: string; expectedControlRevision: number; canAutoPublish: boolean; allowedSessions: string[]; allowedOperations: string[]; allowedPaths: string[]; canEditOthers?: boolean }): { producer: Actor; token: string } {
+  producer(input: { name: string; expectedControlRevision: number; canAutoPublish: boolean; canProposeLayouts?: boolean; allowedSessions: string[]; allowedOperations: string[]; allowedPaths: string[]; canEditOthers?: boolean }): { producer: Actor; token: string } {
     return this.commit(() => {
       const c = this.control(); this.checkControl(c, input.expectedControlRevision);
       ensure(typeof input.canAutoPublish === 'boolean' && Array.isArray(input.allowedSessions) && input.allowedSessions.length > 0 && input.allowedSessions.every(s => s === '*' || /^session_[A-Za-z0-9_-]+$/.test(s)), 'SCHEMA_VALIDATION', 'Invalid publishing grant or session scope.');
       ensure(Array.isArray(input.allowedOperations) && input.allowedOperations.every(op => OPERATIONS.includes(op)), 'SCHEMA_VALIDATION', 'Invalid operation scope.');
       ensure(Array.isArray(input.allowedPaths) && input.allowedPaths.every(p => p === '*' || ['/events/*','/workItems/*'].includes(p) || validPath(p)), 'SCHEMA_VALIDATION', 'Invalid field scope.');
       ensure(input.canEditOthers === undefined || typeof input.canEditOthers === 'boolean', 'SCHEMA_VALIDATION', 'canEditOthers must be boolean.');
-      const token = secret(); const producer: Actor = { id: `producer_${randomUUID()}`, role: 'producer', name: text(input.name, 60), canAutoPublish: input.canAutoPublish, allowedSessions: input.allowedSessions, allowedOperations: input.allowedOperations, allowedPaths: input.allowedPaths, canEditOthers: input.canEditOthers === true, revoked: false, tokenHash: tokenHash(token), lastSeenAt: null, lastError: null };
+      ensure(input.canProposeLayouts === undefined || typeof input.canProposeLayouts === 'boolean', 'SCHEMA_VALIDATION', 'canProposeLayouts must be boolean.');
+      const token = secret(); const producer: Actor = { id: `producer_${randomUUID()}`, role: 'producer', name: text(input.name, 60), canAutoPublish: input.canAutoPublish, canProposeLayouts:input.canProposeLayouts===true, allowedSessions: input.allowedSessions, allowedOperations: input.allowedOperations, allowedPaths: input.allowedPaths, canEditOthers: input.canEditOthers === true, revoked: false, tokenHash: tokenHash(token), lastSeenAt: null, lastError: null };
       this.store.put(`producer:${producer.id}`, producer); c.controlRevision++; this.store.put('control', c); this.log(operator, null, null, 'Producer registered', ['/producers'], null);
       return { producer: { ...producer, tokenHash: undefined }, token };
     });
   }
   revoke(id: string, expected: number): void {
     this.commit(() => { const c = this.control(); this.checkControl(c, expected); const a = this.actor(id); a.revoked = true; this.store.put(`producer:${id}`, a); c.controlRevision++; this.store.put('control', c); this.log(operator, null, null, 'Producer revoked', ['/producers'], null); });
+  }
+  setLayoutGrant(id:string,input:{expectedControlRevision:number;canProposeLayouts:boolean}):Actor {
+    return this.commit(()=>{const c=this.control();this.checkControl(c,input.expectedControlRevision);ensure(typeof input.canProposeLayouts==='boolean','SCHEMA_VALIDATION','canProposeLayouts must be boolean.');const a=this.actor(id);if(a.canProposeLayouts!==input.canProposeLayouts){a.canProposeLayouts=input.canProposeLayouts;this.store.put(`producer:${id}`,a);c.controlRevision++;this.store.put('control',c);this.log(operator,null,null,'Producer layout proposal grant updated',['/producers'],null);}return {...a,tokenHash:undefined};});
   }
   selectWork(id: string, input: { workItemId: string | null; expectedRevision: number }): Session {
     return this.commit(() => { const s = this.session(id), before = structuredClone(s); this.checkRevision(s, input.expectedRevision); ensure(input.workItemId === null || s.workItems.some(w => w.id === input.workItemId && !w.retractedAt), 'NOT_FOUND', 'Visible work item not found.', 404); if (s.selectedWorkId !== input.workItemId) { s.selectedWorkId = input.workItemId; s.revision++; this.store.put(`session:${id}`, s); this.log(operator, before, s, 'Displayed work selection changed', ['/selectedWorkId'], null); } return s; });

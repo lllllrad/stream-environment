@@ -1,4 +1,4 @@
-# External content proposals through MCP
+# External content and layout proposals through MCP
 
 The original requirements already cover **actual viewer-facing content**, not just tasks: sections 8–9 define content operations and proposal review, and section 10.2 specifies an optional MCP adapter. The follow-up prioritizes that adapter. Both HTTP and MCP can suggest session wording, current activity, recap, timeline events, notices and reported work. This integration does not generate content on its own or execute work.
 
@@ -36,16 +36,23 @@ The adapter uses the pinned official [MCP TypeScript SDK](https://ts.sdk.modelco
 
 | Tool | Input | Result and effect |
 | --- | --- | --- |
-| `get_capabilities` | `{}` | Producer role, field/operation grants, publication grant and text limits |
+| `get_capabilities` | `{}` | Producer role, field/operation grants, publication and layout proposal grants, text limits |
 | `get_context` | `{}` or `{ "sessionId": "session_..." }` | `{ "session": <scope-filtered context> }`, or `session: null` without an active session |
 | `get_layouts` | `{}` | Fixed overlay resolutions, scenes, complete layout geometry/order and widget settings; no session text |
-| `render_preview` | `{ "overlayId": "overlay-1920x1080", "sceneId": "live", "change": <optional ChangeSet>, "includeImage": false }` | Read-only exact-size browser measurement, scoped visible text/ranges and optional MCP PNG image; optional sessionId defaults to the active session |
+| `validate_layout` | Full LayoutChange with `intent: "propose"` | Read-only layout validation; requires `canProposeLayouts` |
+| `propose_layout` | Full LayoutChange with `intent: "propose"` | Private layout proposal and replayable receipt; no broadcast change |
+| `get_layout_proposal` | `{ "proposalId": "layout_proposal_..." }` | Status and configuration of your own layout proposal |
+| `render_preview` | `{ "overlayId": "overlay-1920x1080", "sceneId": "live", "change": <optional ChangeSet>, "includeImage": false }` | Read-only exact-size browser measurement, scoped visible text/ranges and optional MCP PNG image; optional sessionId defaults to the active session; optional `widgets` inspect candidate geometry with the layout grant |
 | `validate` | Full ChangeSet with either intent | Side-effect-free before/after comparison; no revision reservation |
 | `propose` | Full ChangeSet with `intent: "propose"` | Private review item and receipt; no display-content or public revision change |
 | `apply` | Full ChangeSet with `intent: "apply"` | Public update only when all server permissions and publication conditions hold |
 | `heartbeat` | `{}` | Connectivity signal; no content or public revision change |
 
 Successful calls return both JSON text and `structuredContent`. Dashboard failures set `isError: true` and preserve the HTTP error's code, paths, current revision, retryability and recovery advice. SDK input-shape failures are MCP tool errors before HTTP submission. The tool name enforces the corresponding intent; no silent conversion between `apply` and `propose` occurs. Operator lifecycle, approval, locks, credentials, audit and output controls are not MCP tools.
+
+## Suggest layouts
+
+Enable the layout proposal grant in the operator's Producers page. Read capabilities/layouts, copy the full target widget array, preserve its per-layout revision and inspect candidate widgets with `render_preview`. Use `validate_layout`, then `propose_layout`; follow the decision with `get_layout_proposal`. The operator compares full-canvas before/after output in Change proposals and explicitly approves the saved configuration. See the [layout proposal guide](layout-proposals.md) for the request contract, complete-replacement semantics, stale review and recovery. These tools work independently of automatic content publication and do not expose operator approval as an AI tool.
 
 ## Suggest display content
 

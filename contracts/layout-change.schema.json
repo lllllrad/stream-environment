@@ -1,0 +1,203 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LayoutChange",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "intent",
+    "overlayId",
+    "sceneId",
+    "baseRevision",
+    "provenance",
+    "widgets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "intent": {
+      "const": "propose"
+    },
+    "overlayId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "sceneId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "baseRevision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Revision of this overlay/scene layout, not the global configuration revision."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "disclosure",
+        "observedAt",
+        "sourceRefs",
+        "reason"
+      ],
+      "properties": {
+        "disclosure": {
+          "enum": [
+            "public",
+            "unknown",
+            "restricted"
+          ]
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "sourceRefs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9:_-]+$"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        }
+      }
+    },
+    "widgets": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "x",
+          "y",
+          "width",
+          "height",
+          "visible",
+          "settings"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "type": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,59}$"
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 48,
+            "maximum": 3840
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 2160
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fontSize",
+              "minFontSize",
+              "padding",
+              "maxLines",
+              "overflow",
+              "background",
+              "color",
+              "showDetails",
+              "maxItems",
+              "message",
+              "detail"
+            ],
+            "properties": {
+              "fontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "minFontSize": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 80
+              },
+              "padding": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 64
+              },
+              "maxLines": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              "overflow": {
+                "enum": [
+                  "clip",
+                  "ellipsis",
+                  "shrink",
+                  "scroll"
+                ]
+              },
+              "background": {
+                "type": "string",
+                "pattern": "^(?:#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})|transparent)$",
+                "description": "Hex RGB/RGBA colors in 3, 4, 6 or 8 digits, or transparent. Alpha is the final digit or pair; shorthand is expanded when saved."
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+                "description": "Hex RGB/RGBA text color in 3, 4, 6 or 8 digits. Alpha is the final digit or pair; shorthand is expanded when saved."
+              },
+              "showDetails": {
+                "type": "boolean"
+              },
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 160
+              },
+              "detail": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        }
+      },
+      "description": "Complete replacement widget array. Array order is back-to-front. Include unchanged widgets to retain them."
+    }
+  }
+}

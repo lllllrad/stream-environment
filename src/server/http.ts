@@ -9,6 +9,7 @@ import { Engine, operator } from '../domain/engine.ts';
 import { sessionExport, exportMarkdown } from '../domain/export.ts';
 import { widgetCatalog } from '../widgets/registry.ts';
 import { RenderService } from './render.ts';
+import type { LayoutProposal } from '../contracts/layout-proposals.ts';
 
 type Credential = { role: 'operator'; tokenHash: string; csrf?: string; expiresAt: number };
 type Client = { response: ServerResponse; screenId: string };
@@ -118,10 +119,18 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         const auth = actor(req); authenticated = auth.actor;
         const isAdmin = path.startsWith('/api/v1/admin/');
         if (isAdmin) ensure(auth.actor.role === 'operator', 'FORBIDDEN', 'Operator permission is required.', 403);
-        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, limits: LIMITS, leaseMs: engine.leaseMs });
+        if (get && path === '/api/v1/capabilities') return send(res, { schemaVersion: '1.0', role: auth.actor.role, operations: auth.actor.role === 'operator' ? OPERATIONS : auth.actor.allowedOperations, allowedPaths: auth.actor.role === 'operator' ? ['*'] : auth.actor.allowedPaths, canAutoPublish: auth.actor.role === 'operator' || auth.actor.canAutoPublish, canProposeLayouts:auth.actor.role==='operator'||auth.actor.canProposeLayouts===true, limits: LIMITS, leaseMs: engine.leaseMs });
         if (get && (path === '/api/v1/overlays' || path === '/api/v1/admin/overlays')) return send(res,{config:engine.overlayConfig(),plugins:widgetCatalog()});
+        if(post&&path==='/api/v1/layout-proposals/validate')return send(res,engine.validateLayoutProposal(auth.actor,await body(req)));
+        if(post&&path==='/api/v1/layout-proposals')return send(res,engine.proposeLayout(auth.actor,await body(req)));
+        const layoutStatus=path.match(/^\/api\/v1\/layout-proposals\/([A-Za-z0-9_-]+)$/);
+        if(get&&layoutStatus)return send(res,engine.readLayoutProposal(auth.actor,layoutStatus[1]));
+        if(get&&path==='/api/v1/admin/layout-proposals')return send(res,{items:engine.store.list<LayoutProposal>('layout-proposal:').filter(p=>p.status==='pending')});
+        const layoutReview=path.match(/^\/api\/v1\/admin\/layout-proposals\/([A-Za-z0-9_-]+)\/(preview|decision)$/);
+        if(get&&layoutReview?.[2]==='preview')return send(res,engine.layoutProposalPreview(layoutReview[1]));
+        if(post&&layoutReview?.[2]==='decision'){const b=await body(req);fields(b,['decision','expectedProposalRevision','expectedConfigRevision','expectedLayoutRevision','expectedControlRevision','acknowledgeStale','allowDisclosure']);return send(res,engine.layoutDecision(layoutReview[1],b));}
         const renderRoute = path.match(/^\/api\/v1\/sessions\/([A-Za-z0-9_-]+)\/render-preview$/);
-        if (post && renderRoute) {const b=await body(req);fields(b,['overlayId','sceneId','change','includeImage']);ensure(typeof b.overlayId==='string'&&(b.sceneId===undefined||typeof b.sceneId==='string')&&(b.includeImage===undefined||typeof b.includeImage==='boolean'),'SCHEMA_VALIDATION','Invalid render preview options.');return send(res,await renderer.render(engine.renderPreview(auth.actor,renderRoute[1],b),b.includeImage));}
+        if (post && renderRoute) {const b=await body(req);fields(b,['overlayId','sceneId','change','widgets','includeImage']);ensure(typeof b.overlayId==='string'&&(b.sceneId===undefined||typeof b.sceneId==='string')&&(b.includeImage===undefined||typeof b.includeImage==='boolean'),'SCHEMA_VALIDATION','Invalid render preview options.');return send(res,await renderer.render(engine.renderPreview(auth.actor,renderRoute[1],b),b.includeImage));}
         if (post && path === '/api/v1/admin/layouts/preview') {const b=await body(req);fields(b,['overlayId','sceneId','widgets']);return send(res,engine.layoutPreview(b.overlayId,b.sceneId,b.widgets));}
         if (post && ['/api/v1/admin/overlays','/api/v1/admin/scenes','/api/v1/admin/scene','/api/v1/admin/layouts'].includes(path)) {
           const b=await body(req),actions:Record<string,string>={'/api/v1/admin/overlays':'create_overlay','/api/v1/admin/scenes':'create_scene','/api/v1/admin/scene':'activate_scene','/api/v1/admin/layouts':'save_layout'};
@@ -152,7 +161,7 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (post && path === '/api/v1/admin/logout') { const raw = cookie(req, 'operator_session'); if (raw) engine.store.delete(`auth:${tokenHash(raw)}`); res.setHeader('Set-Cookie', 'operator_session=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0'); return send(res, { ok: true }); }
         if (get && path === '/api/v1/admin/state') {
           const control = engine.control();
-          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').filter(o => !o.overlayId).map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
+          return send(res, { control, sessions: engine.store.list<Session>('session:').map(s => ({ id: s.id, title: s.title, status: s.status, revision: s.revision, createdAt: s.createdAt })), session: control.activeSessionId ? engine.session(control.activeSessionId) : null, producers: engine.store.list<Actor>('producer:').map(a => ({ ...a, tokenHash: undefined })), outputs: engine.store.list<Output>('output:').filter(o => !o.overlayId).map(o => ({ screenId: o.screenId, preset: o.preset, publicRevision: o.snapshot.publicRevision })), proposals: engine.store.list<Proposal>('proposal:').filter(p => p.status === 'pending'), layoutProposals:engine.store.list<LayoutProposal>('layout-proposal:').filter(p=>p.status==='pending'), audit: engine.store.audits(0, 15), diagnostics: { ...stats, sseConnections: clients.size } });
         }
         if (get && path === '/api/v1/admin/control') return send(res, engine.control());
         if (post && path === '/api/v1/admin/control') { const b = await body(req); fields(b, ['expectedControlRevision','mode','activeSessionId','aiWritesEnabled','confirmRestore']); return send(res, engine.setControl(b)); }
@@ -183,7 +192,9 @@ export function createHttp(engine: Engine, options: HttpOptions) {
         if (get && path === '/api/v1/admin/audit') { const items = engine.store.audits(pageNumber(url.searchParams.get('cursor'), 0)); return send(res, { items, nextCursor: items.length === 30 ? items.at(-1)!.id : null }); }
         const undo = path.match(/^\/api\/v1\/admin\/audit\/(\d+)\/undo$/);
         if (post && undo) { const b = await body(req); fields(b, ['expectedRevision']); return send(res, engine.undo(Number(undo[1]), b.expectedRevision)); }
-        if (post && path === '/api/v1/admin/producers') { const b = await body(req); fields(b, ['name','expectedControlRevision','canAutoPublish','allowedSessions','allowedOperations','allowedPaths','canEditOthers']); return send(res, engine.producer(b), 201); }
+        const layoutGrant=path.match(/^\/api\/v1\/admin\/producers\/([A-Za-z0-9_-]+)\/layout-grant$/);
+        if(post&&layoutGrant){const b=await body(req);fields(b,['expectedControlRevision','canProposeLayouts']);return send(res,engine.setLayoutGrant(layoutGrant[1],b));}
+        if (post && path === '/api/v1/admin/producers') { const b = await body(req); fields(b, ['name','expectedControlRevision','canAutoPublish','allowedSessions','allowedOperations','allowedPaths','canEditOthers','canProposeLayouts']); return send(res, engine.producer(b), 201); }
         const revoke = path.match(/^\/api\/v1\/admin\/producers\/([A-Za-z0-9_-]+)\/revoke$/);
         if (post && revoke) { const b = await body(req); fields(b, ['expectedControlRevision']); engine.revoke(revoke[1], b.expectedControlRevision); return send(res, { ok: true }); }
         throw new DomainError('NOT_FOUND', 'Endpoint not found.', 404);

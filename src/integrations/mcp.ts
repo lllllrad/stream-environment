@@ -3,6 +3,8 @@ import { McpServer, fromJsonSchema, type CallToolResult } from '@modelcontextpro
 import { DomainError, ensure } from '../contracts/errors.ts';
 import type { ChangeSet } from '../contracts/types.ts';
 import { LIMITS } from '../contracts/validation.ts';
+import { layoutChangeSchema, type LayoutChange } from '../contracts/layout-proposals.ts';
+import { widgetInstanceSchema, type WidgetInstance } from '../contracts/overlay.ts';
 
 const changeSchema = JSON.parse(readFileSync(new URL('../../contracts/change-set.schema.json', import.meta.url), 'utf8'));
 type JsonObject = Record<string, any>;
@@ -31,7 +33,7 @@ class DashboardClient {
   }
   async request(path: string, command?: JsonObject): Promise<JsonObject> {
     const body = command === undefined ? undefined : JSON.stringify(command);
-    const submission = path.endsWith('/changes');
+    const submission = path.endsWith('/changes')||path==='/layout-proposals';
     ensure(body === undefined || Buffer.byteLength(body) <= LIMITS.maxBytes, 'BODY_TOO_LARGE', 'Request exceeds 64 KiB.');
     let response: Response;
     try {
@@ -67,9 +69,9 @@ const emptySchema = { type: 'object', additionalProperties: false, properties: {
 
 export function createDashboardMcp(options: McpOptions): McpServer {
   const client = new DashboardClient(options);
-  const server = new McpServer({ name: 'broadcast-content', version: '1.1.0' }, {
+  const server = new McpServer({ name: 'broadcast-content', version: '1.2.0' }, {
     maxToolInputElements: 1024,
-    instructions: 'Propose actual viewer-facing content: current activity, session title/goal/recap, timeline events, pinned notices and reported work. Read capabilities and context, use the shared ChangeSet contract, and preserve request IDs when recovering lost receipts. Proposals remain private until operator approval. Publishing requires explicit producer grants and public provenance. Do not change baseRevision and blindly retry conflicts; do not claim work completion without evidence.'
+    instructions: 'Propose actual viewer-facing content: current activity, session title/goal/recap, timeline events, pinned notices and reported work. Read capabilities and context, use the shared ChangeSet contract, and preserve request IDs when recovering lost receipts. Content and layout proposals remain private until operator approval. Layout proposals require canProposeLayouts and the complete replacement widget array at the observed layout revision; use render_preview with widgets to inspect candidate geometry. Publishing requires explicit producer grants and public provenance. Do not change baseRevision and blindly retry conflicts; do not claim work completion without evidence.'
   });
   const invoke = (fn: () => Promise<JsonObject>, verify = true) => async () => {
     try { if (verify) await client.authorized(); return result(await fn()); }
@@ -77,9 +79,11 @@ export function createDashboardMcp(options: McpOptions): McpServer {
   };
   server.registerTool('get_capabilities', { description: 'Read this producer’s allowed display-content fields, operations, publication grant and Unicode length limits.', inputSchema: fromJsonSchema(emptySchema), annotations: { readOnlyHint: true, openWorldHint: false } }, invoke(() => client.capabilities(), false));
   server.registerTool('get_layouts',{description:'Read fixed overlay resolutions, scenes, complete layouts and installed widget settings. These contain operator-authored layout settings, no session text.',inputSchema:fromJsonSchema(emptySchema),annotations:{readOnlyHint:true,openWorldHint:false}},invoke(()=>client.request('/overlays')));
-  server.registerTool('render_preview',{description:'Inspect current or candidate content in an exact-size overlay without saving. Returns browser-measured visible text/code-point ranges, pixel rectangles, overlaps and truncation. Optional PNG. Scroll is measured at its first frame. Missing fields are not rendered in this layout or not granted to this producer. Read capabilities/context/layouts first.',inputSchema:fromJsonSchema<{sessionId?:string;overlayId:string;sceneId?:string;change?:ChangeSet;includeImage?:boolean}>({type:'object',additionalProperties:false,required:['overlayId'],$defs:changeSchema.$defs,properties:{sessionId:{type:'string',pattern:'^[A-Za-z0-9_-]+$'},overlayId:{type:'string',maxLength:80},sceneId:{type:'string',maxLength:80},change:changeSchema,includeImage:{type:'boolean'}}}),annotations:{readOnlyHint:true,openWorldHint:false}},async ({sessionId,...input})=>invoke(async()=>{
+  server.registerTool('render_preview',{description:'Inspect current or candidate content and optional candidate widgets in an exact-size overlay without saving. Candidate widgets require canProposeLayouts. Returns browser-measured visible text/code-point ranges, pixel rectangles, overlaps and truncation. Optional PNG. Scroll is measured at its first frame. Missing fields are not rendered in this layout or not granted to this producer. Read capabilities/context/layouts first.',inputSchema:fromJsonSchema<{sessionId?:string;overlayId:string;sceneId?:string;change?:ChangeSet;widgets?:WidgetInstance[];includeImage?:boolean}>({type:'object',additionalProperties:false,required:['overlayId'],$defs:changeSchema.$defs,properties:{sessionId:{type:'string',pattern:'^[A-Za-z0-9_-]+$'},overlayId:{type:'string',maxLength:80},sceneId:{type:'string',maxLength:80},change:changeSchema,widgets:{type:'array',maxItems:32,items:widgetInstanceSchema},includeImage:{type:'boolean'}}}),annotations:{readOnlyHint:true,openWorldHint:false}},async ({sessionId,...input})=>invoke(async()=>{
     const id=sessionId??(await client.request('/sessions/current')).session?.id;ensure(id,'NO_ACTIVE_SESSION','Choose a session ID or start a session.',404);return client.request(`/sessions/${encodeURIComponent(id)}/render-preview`,input);
   })());
+  for(const name of ['validate_layout','propose_layout'] as const)server.registerTool(name,{description:name==='validate_layout'?'Validate a complete LayoutChange without saving. Requires canProposeLayouts. Read get_layouts and preserve the observed per-layout baseRevision.':'Propose a complete widget layout for one resolution/scene, including geometry, settings, visibility, order and addition/removal. Requires canProposeLayouts. Always intent:propose; never directly publishes. Include unchanged widgets to retain them and preserve requestId for exact retries.',inputSchema:fromJsonSchema<LayoutChange>(layoutChangeSchema),annotations:{readOnlyHint:name==='validate_layout',destructiveHint:false,idempotentHint:true,openWorldHint:false}},async command=>invoke(()=>client.request('/layout-proposals'+(name==='validate_layout'?'/validate':''),command))());
+  server.registerTool('get_layout_proposal',{description:'Read status and stored configuration of your own layout proposal. Other producers cannot read it.',inputSchema:fromJsonSchema<{proposalId:string}>({type:'object',additionalProperties:false,required:['proposalId'],properties:{proposalId:{type:'string',pattern:'^[A-Za-z0-9_-]+$',maxLength:100}}}),annotations:{readOnlyHint:true,openWorldHint:false}},async({proposalId})=>invoke(()=>client.request('/layout-proposals/'+encodeURIComponent(proposalId)))());
   server.registerTool('get_context', { description: 'Read scope-filtered current display content, session ID/revision and protected paths. Returns session:null when no session is active. Never reads private proposals or audit data.', inputSchema: fromJsonSchema<{ sessionId?: string }>(contextSchema), annotations: { readOnlyHint: true, openWorldHint: false } }, async ({ sessionId }) => invoke(async () => {
     const id = sessionId ?? (await client.request('/sessions/current')).session?.id;
     return { session: id ? await client.request(`/sessions/${encodeURIComponent(id)}/context`) : null };

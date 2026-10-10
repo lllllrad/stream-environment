@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import type { LayoutChange } from '../src/contracts/layout-proposals.ts';
 import { Client, type CallToolResult } from '@modelcontextprotocol/client';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/client/stdio';
 import { Store } from '../src/server/store.ts';
@@ -29,11 +31,27 @@ async function fixture(canAutoPublish = false, host = '127.0.0.1') {
 }
 const data = (result: CallToolResult) => result.structuredContent as any;
 
+test('MCP layout tools require a grant, validate/propose without publishing, recover receipts and report decisions',async()=>{
+  const x=await fixture(),mcp=await x.connect();try{
+    const config=data(await mcp.call('get_layouts')).config,layout=config.layouts[0];
+    const command:LayoutChange={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:['fixture:layout'],reason:'Arrange display widgets'},widgets:structuredClone(layout.widgets)};
+    command.widgets[0].x=100;
+    assert.equal(data(await mcp.call('propose_layout',command)).error.code,'LAYOUT_FORBIDDEN');
+    x.engine.setLayoutGrant(x.issued.producer.id,{expectedControlRevision:x.engine.control().controlRevision,canProposeLayouts:true});assert.equal(data(await mcp.call('get_capabilities')).canProposeLayouts,true);
+    const before=x.engine.output(layout.overlayId);assert.ok(!((await mcp.call('validate_layout',command)).isError));assert.equal(x.store.list('layout-proposal:').length,0);
+    const submitted=await mcp.call('propose_layout',command);assert.ok(!submitted.isError);const receipt=data(submitted);assert.equal(receipt.outcome,'proposed');assert.deepEqual(x.engine.output(layout.overlayId),before);
+    assert.deepEqual(data(await mcp.call('propose_layout',command)),receipt);assert.equal(data(await mcp.call('get_layout_proposal',{proposalId:receipt.proposalId})).status,'pending');
+    assert.equal(data(await mcp.call('propose_layout',{...command,widgets:command.widgets.slice(1)})).error.code,'IDEMPOTENCY_CONFLICT');
+    const preview=x.engine.layoutProposalPreview(receipt.proposalId);x.engine.layoutDecision(receipt.proposalId,{decision:'approve',expectedProposalRevision:preview.proposalRevision,expectedConfigRevision:preview.configRevision,expectedLayoutRevision:preview.layoutRevision,expectedControlRevision:preview.controlRevision});
+    assert.equal(data(await mcp.call('get_layout_proposal',{proposalId:receipt.proposalId})).status,'approved');assert.equal(x.engine.output(layout.overlayId).snapshot.overlay!.widgets[0].x,100);
+  }finally{await mcp.client.close();await x.close();}
+});
+
 test('MCP stdio: discover content tools, validate/propose actual display wording, approve, publish and replay receipt', async () => {
   const x = await fixture(), mcp = await x.connect();
   try {
     const tools = await mcp.client.listTools();
-    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','get_layouts','heartbeat','propose','render_preview','validate']);
+    assert.deepEqual(tools.tools.map(t => t.name).sort(), ['apply','get_capabilities','get_context','get_layout_proposal','get_layouts','heartbeat','propose','propose_layout','render_preview','validate','validate_layout']);
     assert.equal(data(await mcp.call('get_layouts')).config.layouts.length,4);
     const proposedSchema = tools.tools.find(t => t.name === 'propose')!.inputSchema;
     assert.deepEqual((proposedSchema.properties as any).intent, { const: 'propose' });

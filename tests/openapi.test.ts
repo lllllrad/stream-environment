@@ -80,6 +80,20 @@ test('OpenAPI widget colors accept RGB and RGBA lengths and reject incomplete va
   for(const color of ['#8B','#8BF88','#88BBFF8','#88BBFF888','#GGG8'])assert.equal(validate({...DEFAULT_SETTINGS,background:color}),false);
 });
 
+test('OpenAPI layout proposal operations validate real requests, receipts, status, preview and approval',async()=>{
+  const x=await fixture();try{
+    x.engine.setLayoutGrant(x.issued.producer.id,{expectedControlRevision:x.engine.control().controlRevision,canProposeLayouts:true});
+    const layout=x.engine.overlayConfig().layouts[0],widgets=structuredClone(layout.widgets);widgets[0].x=100;
+    const command={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'Improve layout'},widgets};
+    const call=async(id:string,body?:object,target='',token=x.issued.token)=>{const op=operation(spec,id);if(body)assertSchema(spec,op.definition.requestBody.content['application/json'].schema,body);const r=await fetch(x.base+op.path.replace('{id}',target),{method:op.method.toUpperCase(),headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});const value=await r.json();assert.equal(r.status,200,JSON.stringify(value));assertSchema(spec,op.definition.responses['200'].content['application/json'].schema,value);return value;};
+    await call('validateLayout',command);const receipt=await call('proposeLayout',command);await call('getLayoutProposal',undefined,receipt.proposalId);
+    const preview=await call('getApiV1AdminLayoutProposalsByIdPreview',undefined,receipt.proposalId,x.adminToken);
+    await call('postApiV1AdminLayoutProposalsByIdDecision',{decision:'approve',expectedProposalRevision:preview.proposalRevision,expectedConfigRevision:preview.configRevision,expectedLayoutRevision:preview.layoutRevision,expectedControlRevision:preview.controlRevision},receipt.proposalId,x.adminToken);
+    assert.equal((await call('getLayoutProposal',undefined,receipt.proposalId)).status,'approved');await call('validateLayout',command);
+    const invalid=validator(spec,operation(spec,'proposeLayout').definition.requestBody.content['application/json'].schema);assert.equal(invalid({...command,intent:'apply'}),false);
+  }finally{await x.close();}
+});
+
 test('HTTP OpenAPI discovery is public, read-only and uses the validated origin without exposing private state', async () => {
   const x = await fixture();
   try {
