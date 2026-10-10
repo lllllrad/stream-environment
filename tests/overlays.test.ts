@@ -3,6 +3,23 @@ import assert from 'node:assert/strict';
 import { setup, apply, now, event, change } from './helpers.ts';
 import { operator, Engine } from '../src/domain/engine.ts';
 
+test('alpha colors are accepted over layout commands, normalized, published and retained after restart',()=>{
+  const x=setup(),e=x.engine;
+  try{
+    apply(e,x.producer,x.session.id,[now()]);
+    const initial=e.overlayConfig(),layout=initial.layouts[0],widgets=structuredClone(layout.widgets),widget=widgets.find(w=>w.type==='now')!;
+    const save=()=>e.updateOverlays({expectedRevision:e.overlayConfig().revision,action:'save_layout',overlayId:layout.overlayId,sceneId:layout.sceneId,widgets});
+    for(const [input,canonical] of [['#8BF8','#88bbff88'],['#8BF0','#88bbff00'],['#8BFF','#88bbffff'],['#88BBFF80','#88bbff80']]){
+      widget.settings.background=input;widget.settings.color='#f008';const config=save(),saved=config.layouts[0].widgets.find(w=>w.id===widget.id)!;
+      assert.equal(saved.settings.background,canonical);assert.equal(saved.settings.color,'#ff000088');
+      assert.equal(e.output(layout.overlayId).snapshot.overlay!.widgets.find(w=>w.id===widget.id)!.settings.background,canonical);
+    }
+    const before=e.overlayConfig();
+    for(const invalid of ['#8BFF8','#88BBFF8','#88BBFF888','#GGG8','rgba(0,0,0,0.5)']){widget.settings.background=invalid;assert.throws(save);assert.deepEqual(e.overlayConfig(),before);}
+    assert.deepEqual(new Engine(x.store).overlayConfig(),before);
+  }finally{x.store.close();}
+});
+
 test('new overlay outputs initialize current auto content but never introduce unpublished content during hold or hidden migration',()=>{
   for(const mode of ['auto','hold','hidden'] as const){const x=setup();try{apply(x.engine,x.producer,x.session.id,[now('Existing activity')]);if(mode!=='auto')x.engine.setControl({expectedControlRevision:x.engine.control().controlRevision,mode});for(const o of x.engine.overlayConfig().overlays)x.store.delete(`output:${o.id}`);const restarted=new Engine(x.store);const widgets=restarted.output('overlay-1920x1080').snapshot.overlay!.widgets;if(mode==='auto')assert.ok(widgets.flatMap(w=>w.blocks).some(b=>b.text==='Existing activity'));else assert.ok(widgets.every(w=>w.blocks.length===0));}finally{x.store.close();}}
 });

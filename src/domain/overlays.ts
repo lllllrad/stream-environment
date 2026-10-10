@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, widgetInstanceSchema, type OverlayConfig, type Overla
 import type { Actor, PublicContent, Session } from '../contracts/types.ts';
 import { pathAllowed, text } from '../contracts/validation.ts';
 import { widgetPlugin } from '../widgets/registry.ts';
+import { normalizeWidgetColor } from '../contracts/colors.ts';
 
 const validateWidget = new Ajv({strict:true,allErrors:true}).compile<WidgetInstance>(widgetInstanceSchema);
 export function defaultLayout(overlay:Overlay,scene:Scene):Layout {
@@ -30,7 +31,7 @@ export function validatedWidgets(overlay:Overlay,raw:unknown):WidgetInstance[]{
     ensure(widget.settings.minFontSize<=widget.settings.fontSize,'INVALID_LAYOUT','Minimum font size must not exceed the requested font size.');
     for(const field of ['message','detail'] as const) if(widget.settings[field]) text(widget.settings[field],field==='message'?160:300);
   }
-  return structuredClone(raw);
+  return structuredClone(raw).map(widget=>({...widget,settings:{...widget.settings,background:normalizeWidgetColor(widget.settings.background,true)!,color:normalizeWidgetColor(widget.settings.color)!}}));
 }
 function publicContent(s:Session|undefined,now:string):PublicContent|null{
   if(!s)return null;

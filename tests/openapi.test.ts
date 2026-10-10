@@ -7,6 +7,7 @@ import addFormats from 'ajv-formats';
 import { Store } from '../src/server/store.ts';
 import { Engine } from '../src/domain/engine.ts';
 import { createHttp } from '../src/server/http.ts';
+import { DEFAULT_SETTINGS } from '../src/contracts/overlay.ts';
 
 const spec = JSON.parse(readFileSync('contracts/openapi.json','utf8'));
 function validator(document: any, schema: any) {
@@ -70,6 +71,13 @@ test('OpenAPI embedded schemas validate both request examples and enforce origin
   invalid.operations[0].value.title = 'x'.repeat(49);
   assert.equal(validate(invalid),false);
   assertSchema(spec,{$ref:'#/components/schemas/PublicSnapshot'},{screenId:'main-full',preset:'full',publicRevision:0,sessionId:null,mode:'hidden',leaseMs:30000,publishedAt:new Date().toISOString(),content:null});
+});
+
+test('OpenAPI widget colors accept RGB and RGBA lengths and reject incomplete values',()=>{
+  const validate=validator(spec,spec.components.schemas.WidgetInstance.properties.settings);
+  for(const color of ['#8BF','#8BF8','#88BBFF','#88BBFF88'])assert.ok(validate({...DEFAULT_SETTINGS,background:color,color}),JSON.stringify(validate.errors));
+  assert.ok(validate({...DEFAULT_SETTINGS,background:'transparent',color:'#f000'}));
+  for(const color of ['#8B','#8BF88','#88BBFF8','#88BBFF888','#GGG8'])assert.equal(validate({...DEFAULT_SETTINGS,background:color}),false);
 });
 
 test('HTTP OpenAPI discovery is public, read-only and uses the validated origin without exposing private state', async () => {

@@ -1,12 +1,6 @@
 import type { WidgetInstance } from '../contracts/overlay.ts';
-
-export function normalizeWidgetColor(value: string, background = false): string | null {
-  const color = value.trim().toLowerCase();
-  if (background && color === 'transparent') return color;
-  if (/^#[0-9a-f]{6}$/.test(color)) return color;
-  if (/^#[0-9a-f]{3}$/.test(color)) return '#' + [...color.slice(1)].map(digit => digit + digit).join('');
-  return null;
-}
+import { normalizeWidgetColor } from '../contracts/colors.ts';
+export { normalizeWidgetColor } from '../contracts/colors.ts';
 
 export function normalizeWidgetColors(widgets: WidgetInstance[]): WidgetInstance[] | null {
   const normalized: WidgetInstance[] = [];

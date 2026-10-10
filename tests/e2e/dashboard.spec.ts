@@ -61,7 +61,7 @@ test('operator starts in the overlay editor and compact navigation retains an ac
   await editor.click(); await expect(page.getByLabel('편집 씬')).toBeVisible();
 });
 
-test('widget colors accept shorthand, avoid invalid preview requests, persist and support transparency',async({page,request})=>{
+test('widget colors accept RGB/RGBA, preserve alpha in pickers, persist and support opacity controls',async({page,request})=>{
   await seed(request,'normal'); const {config}=await api(request,'/admin/overlays');
   const original=config.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets;
   await login(page,false); const widget=page.locator('.overlay-editor-stage [data-widget="now"]');
@@ -87,7 +87,24 @@ test('widget colors accept shorthand, avoid invalid preview requests, persist an
     await page.reload(); await expect(background).toHaveValue('#bbff88');
     await expect(widget).toHaveCSS('background-color','rgb(187, 255, 136)');
     await expect(widget).toHaveCSS('color','rgb(32, 64, 96)');
-    await page.screenshot({path:'artifacts/widget-colors.png',fullPage:true});
+    await background.fill('#8BF8'); await expect(widget).toHaveCSS('background-color',/^rgba\(136, 187, 255, 0\.533\d*\)$/);
+    await page.getByLabel('글자색',{exact:true}).fill('#ABC8'); await expect(widget).toHaveCSS('color',/^rgba\(170, 187, 204, 0\.533\d*\)$/);
+    await page.getByLabel('배경색 선택',{exact:true}).fill('#102030'); await expect(background).toHaveValue('#10203088');
+    await expect(widget).toHaveCSS('background-color',/^rgba\(16, 32, 48, 0\.533\d*\)$/);
+    await page.getByLabel('배경색 선택',{exact:true}).fill('#88bbff');
+    await page.getByLabel('글자색 선택',{exact:true}).fill('#204060'); await expect(page.getByLabel('글자색',{exact:true})).toHaveValue('#20406088');
+    await save(); await expect(display.locator('[data-widget="now"]')).toHaveCSS('background-color',/^rgba\(136, 187, 255, 0\.533\d*\)$/);
+    await expect(display.locator('[data-widget="now"]')).toHaveCSS('color',/^rgba\(32, 64, 96, 0\.533\d*\)$/);
+    ({config:saved}=await api(request,'/admin/overlays'));settings=saved.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets.find((widget:any)=>widget.id==='now').settings;
+    expect(settings.background).toBe('#88bbff88'); expect(settings.color).toBe('#20406088');
+    await page.reload(); await expect(background).toHaveValue('#88bbff88'); await expect(page.getByLabel('배경색 선택',{exact:true})).toHaveValue('#88bbff');
+    await expect(page.getByLabel('배경색 불투명도',{exact:true})).toHaveValue('53');
+    await expect(widget).toHaveCSS('background-color',/^rgba\(136, 187, 255, 0\.533\d*\)$/);
+    await page.screenshot({path:'artifacts/widget-alpha-colors.png',fullPage:true});
+    await page.getByLabel('배경색 불투명도',{exact:true}).press('Home'); await expect(background).toHaveValue('#88bbff00');
+    await expect(widget).toHaveCSS('background-color','rgba(136, 187, 255, 0)');
+    await page.getByLabel('배경색 불투명도',{exact:true}).press('End'); await expect(background).toHaveValue('#88bbff');
+    await expect(widget).toHaveCSS('background-color','rgb(136, 187, 255)');
     await page.getByRole('button',{name:'배경 투명하게',exact:true}).click(); await expect(widget).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
     await save(); await expect(display.locator('[data-widget="now"]')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
     expect(rejected).toEqual([]); expect(invalidRequests).toEqual([]);

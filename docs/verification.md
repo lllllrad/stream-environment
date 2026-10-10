@@ -109,3 +109,9 @@ The browser suite verifies initial editor access, resolution/scene controls, con
 ## Widget color input correction
 
 Type checking and build pass. The color regression and existing layout editing cases pass in the final focused run; initial editor access also passed the preceding focused run. The regression types `#bf` across debounce and periodic refresh, verifies no invalid preview requests or rejected responses, completes `#bf8`, checks the rendered `#bbff88` background, edits text color with shorthand and the native picker, and saves while the shorthand field is focused. It checks canonical stored values, persistence after reload, public output color and transparent background. `artifacts/widget-colors.png` was visually inspected. API color formats and backend behavior are unchanged.
+
+## Alpha color support
+
+Type checking/build, 16 focused Node cases and five focused Edge cases pass. RGB/RGBA colors in 3, 4, 6 or 8 hex digits are accepted by the UI and layout API; saved values use six/eight-digit lowercase hex. OpenAPI and the public snapshot schema are regenerated. Tests cover canonical alpha persistence and publication, atomic invalid-color rejection, restart recovery, native RGB picker alpha preservation, opacity controls and public output after reload. `artifacts/widget-alpha-colors.png` was visually inspected.
+
+Real browser inspection checks that partial/zero-alpha backgrounds preserve underlying geometric visibility, explicit `FF` alpha fully occludes it, and zero-alpha text reports no visible glyphs. Partial opacity remains a geometric visibility measurement rather than a contrast/readability guarantee. The normal server was restarted with existing data; a read-only alpha preview returned HTTP 200 and the stored layout hash remained unchanged before/after restart and inspection.

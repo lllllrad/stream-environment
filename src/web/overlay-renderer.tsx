@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { OverlayFrame, Rect, VisibilityReport } from '../contracts/overlay.ts';
 import './overlay.css';
+import { widgetColorAlpha } from '../contracts/colors.ts';
 
 const rect = (r: DOMRect, origin: DOMRect, scale: number): Rect => ({x:(r.x-origin.x)/scale,y:(r.y-origin.y)/scale,width:r.width/scale,height:r.height/scale});
 const intersects = (a: Rect,b: Rect) => a.x < b.x+b.width && a.x+a.width > b.x && a.y < b.y+b.height && a.y+a.height > b.y;
@@ -31,7 +32,7 @@ export function fitOverlay(root: HTMLElement, frame: OverlayFrame) {
   }
 }
 export function measureOverlay(root: HTMLElement,frame: OverlayFrame):VisibilityReport {
-  const origin=root.getBoundingClientRect(),scale=origin.width/frame.width;
+  const origin=root.getBoundingClientRect(),scale=origin.width/frame.width,opaque=frame.widgets.map(w=>widgetColorAlpha(w.settings.background)===1);
   return {width:frame.width,height:frame.height,overlayId:frame.id,sceneId:frame.sceneId,configRevision:frame.configRevision,layoutRevision:frame.layoutRevision,widgets:frame.widgets.map((w,index)=>{
     const area={x:w.x,y:w.y,width:w.width,height:w.height}, overlapping=frame.widgets.filter((other,i)=>i!==index&&other.visible&&intersects(area,{x:other.x,y:other.y,width:other.width,height:other.height}));
     const node=[...root.querySelectorAll<HTMLElement>('[data-widget]')].find(n=>n.dataset.widget===w.id);
@@ -42,7 +43,7 @@ export function measureOverlay(root: HTMLElement,frame: OverlayFrame):Visibility
       for(let i=0;i<Math.min(full.length,actual.length,prefix);i++){
         const length=actual[i].length,range=document.createRange();let visible=false;
         if(textNode){range.setStart(textNode,offset);range.setEnd(textNode,offset+length);const bounds=range.getBoundingClientRect(),r=rect(bounds,origin,scale);
-          visible=bounds.width>0&&bounds.left>=inner.left-.5&&bounds.right<=inner.right+.5&&bounds.top>=inner.top-.5&&bounds.bottom<=inner.bottom+.5&&r.x>=0&&r.y>=0&&r.x+r.width<=frame.width+.5&&r.y+r.height<=frame.height+.5&&!frame.widgets.some((o,j)=>j>index&&o.visible&&o.blocks.length>0&&o.settings.background!=='transparent'&&intersects(r,{x:o.x,y:o.y,width:o.width,height:o.height}));}
+          visible=widgetColorAlpha(w.settings.color)>0&&bounds.width>0&&bounds.left>=inner.left-.5&&bounds.right<=inner.right+.5&&bounds.top>=inner.top-.5&&bounds.bottom<=inner.bottom+.5&&r.x>=0&&r.y>=0&&r.x+r.width<=frame.width+.5&&r.y+r.height<=frame.height+.5&&!frame.widgets.some((o,j)=>j>index&&o.visible&&o.blocks.length>0&&opaque[j]&&intersects(r,{x:o.x,y:o.y,width:o.width,height:o.height}));}
         if(visible){visibleText+=full[i];if(ranges.at(-1)?.end===i)ranges.at(-1)!.end++;else ranges.push({start:i,end:i+1});}offset+=length;
       }
       const count=[...visibleText].length;return {path:field.dataset.field!,text:full.join(''),visibleText,totalCodePoints:full.length,visibleCodePoints:count,visibleRanges:ranges,truncated:count<full.length,fontSize:parseFloat(getComputedStyle(field).fontSize),rect:rect(field.getBoundingClientRect(),origin,scale)};
