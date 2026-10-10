@@ -201,4 +201,8 @@ a { color: inherit; text-decoration: none; }
 .content-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
 .content-grid>.now-panel { grid-column: 1 / -1; }
 .restore-preview h3 { font-size: 12px; margin-bottom: 12px; }
+.layout-proposal-card dl { margin: 10px 0; display: grid; gap: 6px; }
+.layout-proposal-card dl>div { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 10px; font-size: 12px; }
+.layout-proposal-card dt { color: var(--muted); }
+.layout-proposal-card dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width:760px) { .content-grid { grid-template-columns: 1fr; } }

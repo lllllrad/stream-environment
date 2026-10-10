@@ -44,6 +44,10 @@ The shared text renderer supports:
 
 Small rectangles, large padding, limited item count, hidden details and overlapping widgets can suppress fields. The editor reports fully visible code points and identifies clipping and overlaps. Preview comparisons use the same renderer as broadcast. Test the final source in OBS because installed fonts, Chromium versions and scene scaling can change actual pixels.
 
+## AI layout suggestions
+
+Agents with `canProposeLayouts` can submit complete widget replacements for an overlay/scene pair. The operator compares actual before/after output, geometry, clipping and settings in Change proposals and approves or rejects the suggestion. Pending suggestions never affect output. Existing producer credentials need the explicit grant enabled in Producers. See [AI layout proposals](layout-proposals.md) for HTTP/OpenAPI/MCP requests and stale/disclosure review.
+
 ## Agent inspection over HTTP and MCP
 
 Use `getLayouts` (`GET /api/v1/overlays`) to discover overlay IDs, scenes, geometry, order and plugin settings. This authenticated catalog contains operator-authored layout settings but no session content. Read normal capabilities and scoped session context first.
@@ -58,7 +62,7 @@ Call `renderPreview` (`POST /api/v1/sessions/{id}/render-preview`) with:
 }
 ```
 
-Optionally include `change` with a complete normal ChangeSet. A new candidate request ID avoids replaying an already-receipted request. Both current and candidate inspections validate session/field/operation grants; candidate inspection preserves normal revision, ownership, lock, observation and disclosure checks. Use proposal intent for a reviewed suggestion. Inspection itself never saves a proposal, receipt, session change, lock or publication.
+Optionally include `widgets` with a complete candidate layout (requires the layout proposal grant), and/or `change` with a complete normal ChangeSet. A new candidate request ID avoids replaying an already-receipted request. Both current and candidate inspections validate session/field/operation grants; candidate inspection preserves normal revision, ownership, lock, observation and disclosure checks. Use proposal intent for a reviewed suggestion. Inspection itself never saves a proposal, receipt, session change, lock or publication.
 
 The response includes a hypothetical snapshot, inspected session/configuration/layout revisions, changed paths and browser-measured `report`. Every widget has a pixel rectangle, visibility, overflow, scrolling flag, overlap IDs and scoped fields. Each field includes full permitted text, actual visible text, total/visible Unicode code-point counts, ranges with inclusive `start` and exclusive `end`, font size and canvas-relative rectangle. A code point is counted only when its browser Range rectangle is fully inside the field's widget clipping area and canvas and unobscured by a later nontransparent panel. Partial glyphs are conservatively excluded. Combining marks/emoji sequences may comprise multiple code points; these are not grapheme counts. Ellipsis itself is not counted as source text.
 

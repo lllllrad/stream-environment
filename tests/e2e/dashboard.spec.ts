@@ -114,6 +114,40 @@ test('widget colors accept RGB/RGBA, preserve alpha in pickers, persist and supp
   }
 });
 
+test('operator grants layout proposals and reviews measured widget geometry before approving private AI suggestions',async({page,request})=>{
+  const fixture=await seed(request,'normal'),{config}=await api(request,'/admin/overlays'),layout=config.layouts.find((l:any)=>l.overlayId==='overlay-1920x1080'&&l.sceneId==='live'),original=layout.widgets;
+  await login(page,false);await page.getByRole('button',{name:'생산자',exact:true}).click();
+  const producer=page.getByRole('article',{name:`생산자 Browser fixture producer ${fixture.producer.producer.id}`,exact:true});await producer.getByRole('button',{name:'레이아웃 제안 권한 허용',exact:true}).click();await expect(producer.getByRole('button',{name:'레이아웃 제안 권한 해제',exact:true})).toBeVisible();
+  const widgets=structuredClone(original).filter((w:any)=>w.id!=='events'),now=widgets.find((w:any)=>w.id==='now');Object.assign(now,{x:40,y:200,width:540,height:240});now.settings.background='#8BF8';widgets.push({...structuredClone(now),id:'agent_banner',type:'away',x:40,y:480,height:140,settings:{...now.settings,message:'검토 후 공개할 위젯 문구',detail:'AI 레이아웃 제안'}});
+  const command={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'restricted',observedAt:new Date().toISOString(),sourceRefs:['fixture:layout'],reason:'활동 영역을 왼쪽으로 배치'},widgets};
+  const display=await page.context().newPage();await display.goto(`/display/${layout.overlayId}`);
+  try{
+    const inspection=await api(request,`/sessions/${fixture.session.id}/render-preview`,{overlayId:layout.overlayId,sceneId:'live',widgets},fixture.producer.token);expect(inspection.report.width).toBe(1920);expect(inspection.report.widgets.find((w:any)=>w.id==='now').rect.x).toBe(40);
+    await api(request,'/layout-proposals/validate',command,fixture.producer.token);const receipt=await api(request,'/layout-proposals',command,fixture.producer.token);
+    await expect(display.locator('[data-widget="now"]')).toHaveCSS('left',`${original.find((w:any)=>w.id==='now').x}px`);await expect(display.getByText('검토 후 공개할 위젯 문구',{exact:true})).toHaveCount(0);
+    await page.getByRole('button',{name:'변경 제안',exact:true}).click();const card=page.getByRole('article',{name:'레이아웃 제안 활동 영역을 왼쪽으로 배치',exact:true});await expect(card).toBeVisible();await expect(card.getByRole('button',{name:'레이아웃 승인',exact:true})).toBeDisabled();await card.getByRole('button',{name:'레이아웃 비교 열기',exact:true}).click();
+    await expect(card.getByRole('region',{name:'레이아웃 제안 비교',exact:true})).toBeVisible();await expect(card.locator('[data-widget="agent_banner"]')).toBeVisible();await expect(card.locator('.visibility-details').first()).toBeVisible();
+    await card.getByLabel('배치·크기·표시 내용과 잘림·겹침을 검토했습니다.').check();await expect(card.getByRole('button',{name:'레이아웃 승인',exact:true})).toBeDisabled();await card.getByLabel('위젯 문구와 설정이 공개 가능한지 검토하고 허용합니다.').check();
+    await page.screenshot({path:'artifacts/layout-proposal-review.png',fullPage:true});await card.getByRole('button',{name:'레이아웃 승인',exact:true}).click();await expect(card).toHaveCount(0);await expect(display.locator('[data-widget="now"]')).toHaveCSS('left','40px');await expect(display.getByText('검토 후 공개할 위젯 문구',{exact:true})).toBeVisible();await expect(display.locator('[data-widget="events"]')).toHaveCount(0);
+    expect((await api(request,`/layout-proposals/${receipt.proposalId}`,undefined,fixture.producer.token)).status).toBe('approved');await page.reload();await expect(page.getByLabel('위젯 x',{exact:true})).toHaveValue('40');
+  }finally{await display.close();const {config:latest}=await api(request,'/admin/overlays');await api(request,'/admin/layouts',{overlayId:layout.overlayId,sceneId:'live',widgets:original,expectedRevision:latest.revision});}
+});
+
+test('layout proposal review invalidates on edits, requires stale replacement acknowledgment and can reject without publishing',async({page,request})=>{
+  const fixture=await seed(request,'normal'),{config}=await api(request,'/admin/overlays'),layout=config.layouts.find((l:any)=>l.overlayId==='overlay-1280x720'&&l.sceneId==='break'),original=layout.widgets;
+  await api(request,`/admin/producers/${fixture.producer.producer.id}/layout-grant`,{expectedControlRevision:(await api(request,'/admin/control')).controlRevision,canProposeLayouts:true});
+  const widgets=structuredClone(original);widgets.find((w:any)=>w.id==='away').x=100;
+  const command={schemaVersion:'1.0',requestId:randomUUID(),intent:'propose',overlayId:layout.overlayId,sceneId:layout.sceneId,baseRevision:layout.revision,provenance:{disclosure:'public',observedAt:new Date().toISOString(),sourceRefs:[],reason:'720p 자리비움 배치 조정'},widgets};const receipt=await api(request,'/layout-proposals',command,fixture.producer.token);
+  await login(page,false);await page.getByRole('button',{name:'변경 제안',exact:true}).click();const card=page.getByRole('article',{name:'레이아웃 제안 720p 자리비움 배치 조정',exact:true});
+  try{
+    await card.getByRole('button',{name:'레이아웃 비교 열기',exact:true}).click();const reviewed=card.getByLabel('배치·크기·표시 내용과 잘림·겹침을 검토했습니다.');await reviewed.check();await expect(card.getByRole('button',{name:'레이아웃 승인',exact:true})).toBeEnabled();await expect(card.getByText('현재 송출 선택 씬이 아닙니다. 이 씬을 송출 선택할 때 반영됩니다.',{exact:true})).toBeVisible();
+    const newer=structuredClone(original);newer.find((w:any)=>w.id==='away').y=50;await api(request,'/admin/layouts',{overlayId:layout.overlayId,sceneId:layout.sceneId,widgets:newer,expectedRevision:config.revision});
+    const stale=card.getByLabel('최신 레이아웃을 제안 구성으로 대체하는 것을 확인했습니다.');await expect(stale).toBeVisible();await expect(reviewed).not.toBeChecked();await reviewed.check();await expect(card.getByRole('button',{name:'레이아웃 승인',exact:true})).toBeDisabled();await stale.check();await card.getByRole('button',{name:'레이아웃 승인',exact:true}).click();await expect(card).toHaveCount(0);
+    let {config:current}=await api(request,'/admin/overlays');expect(current.activeSceneId).toBe('live');const saved=current.layouts.find((l:any)=>l.overlayId===layout.overlayId&&l.sceneId===layout.sceneId);expect(saved.widgets.find((w:any)=>w.id==='away').x).toBe(100);expect(saved.widgets.find((w:any)=>w.id==='away').y).toBe(original.find((w:any)=>w.id==='away').y);
+    const reject=await api(request,'/layout-proposals',{...command,requestId:randomUUID(),baseRevision:saved.revision,widgets:original,provenance:{...command.provenance,reason:'거절할 레이아웃 제안'}},fixture.producer.token);const rejectedCard=page.getByRole('article',{name:'레이아웃 제안 거절할 레이아웃 제안',exact:true});await rejectedCard.getByRole('button',{name:'레이아웃 제안 거절',exact:true}).click();await expect(rejectedCard).toHaveCount(0);expect((await api(request,`/layout-proposals/${reject.proposalId}`,undefined,fixture.producer.token)).status).toBe('rejected');expect((await api(request,`/layout-proposals/${receipt.proposalId}`,undefined,fixture.producer.token)).status).toBe('approved');
+  }finally{const {config:latest}=await api(request,'/admin/overlays');await api(request,'/admin/layouts',{overlayId:layout.overlayId,sceneId:layout.sceneId,widgets:original,expectedRevision:latest.revision});}
+});
+
 test('layout undo groups drag and resize gestures, restores saved drafts and resets across layouts',async({page,request})=>{
   const fixture=await seed(request,'normal'),{config}=await api(request,'/admin/overlays');
   const original=config.layouts.find((layout:any)=>layout.overlayId==='overlay-1920x1080'&&layout.sceneId==='live').widgets;

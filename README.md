@@ -62,6 +62,7 @@ just run              # Build and start the dashboard
 
 - Session creation, start, pause, resume, and end; six kinds of broadcast information.
 - Fixed-resolution overlays, complete overlay/scene layout matrix, drag/resize and keyboard editing, widget visibility/stacking/settings, reviewed layout saves, Away status plugin and trusted build-time widget registration.
+- Reviewed AI layout proposals over HTTP/OpenAPI/MCP, explicit producer layout grants, candidate geometry inspection and stale/disclosure review. See [agent layout proposals](docs/layout-proposals.md).
 - Private exact-size browser inspection over HTTP/MCP: actual visible Unicode ranges, font sizes, rectangles, clipping, occlusion and optional PNG, with producer field scopes preserved.
 - Manual edits with persistent server-enforced field locks, explicit unlock, event/work correction and withdrawal, pinned notice expiry, and work selection.
 - Automatic publication, hold, emergency hide, and preview-confirmed restoration; a separate producer-write gate.
