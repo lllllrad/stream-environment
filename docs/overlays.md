@@ -6,7 +6,7 @@ An **overlay** is a transparent canvas at one unique fixed resolution. The defau
 
 These terms align with OBS's fixed Browser Source viewport and its composition vocabulary, while keeping application scenes separate from OBS scene control. See the official [Browser Source guide](https://obsproject.com/kb/browser-source) and [Sources guide](https://obsproject.com/kb/sources-guide). No OBS control integration is required.
 
-Open **Overlay editor** in `/admin`, choose a resolution and scene, then copy its output URL. Add one OBS Browser Source at `(0, 0)` using the exact overlay width and height. Keep the default transparent-body CSS. Reuse that source in OBS scenes at the same base canvas resolution. Main video or desktop content comes from your other OBS sources; this app supplies the overlay only.
+The operator UI at `/admin` opens in **Overlay editor**. Choose a resolution and scene, then copy its output URL. Add one OBS Browser Source at `(0, 0)` using the exact overlay width and height. Keep the default transparent-body CSS. Reuse that source in OBS scenes at the same base canvas resolution. Main video or desktop content comes from your other OBS sources; this app supplies the overlay only. Use **Content management** to create sessions and edit wording. Legacy output URLs remain available for existing OBS sources, without preset controls in the operator UI.
 
 | Overlay | Anonymous output URL | OBS source dimensions |
 | --- | --- | --- |

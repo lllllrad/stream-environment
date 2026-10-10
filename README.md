@@ -12,19 +12,19 @@ pnpm build
 pnpm start
 ```
 
-Open [the control room](http://127.0.0.1:4310/admin). On first start, the server creates `.data/operator.key`. Copy its contents into the operator-key field. To supply your own credential, copy `.env.example` to `.env` and set `ADMIN_TOKEN` to a random value of at least 24 characters. Credentials, SQLite files, generated reports, and local configuration are ignored by Git.
+Open [the operator UI](http://127.0.0.1:4310/admin). On first start, the server creates `.data/operator.key`. Copy its contents into the operator-key field. To supply your own credential, copy `.env.example` to `.env` and set `ADMIN_TOKEN` to a random value of at least 24 characters. Credentials, SQLite files, generated reports, and local configuration are ignored by Git.
 
 The server binds to `0.0.0.0:4310` by default. From another computer, use `http://<dashboard-computer-IP>:4310` and a registered producer token for AI access. Set the MCP adapter's `DASHBOARD_URL` to that address on the AI agent computer. `0.0.0.0` is a listen address, not a client URL. Set `BIND_ADDRESS=127.0.0.1` in `.env` for same-machine access only. See [network deployment](docs/operations.md#deployment-boundary) for DNS names and firewall setup.
 
-The initial app has no example session content. Create a session, enter its public content, and use **Overlay editor** to arrange widgets and copy a fixed public output URL (no login or key required). The operator UI and broadcast page are separate routes and bundles. See the [overlay editor, agent visibility and widget extension guide](docs/overlays.md).
+The initial app has no example session content. The operator UI opens in **Overlay editor**, where you arrange widgets for each resolution and scene and copy a fixed public output URL (no login or key required). Use **Content management** to create sessions and edit public wording. Proposal review and publication restoration use the same overlays. The operator UI and broadcast page are separate routes and bundles. See the [overlay editor, agent visibility and widget extension guide](docs/overlays.md).
 
 | Output | Browser-source size | Purpose |
 | --- | --- | --- |
 | `overlay-1920x1080` | 1920 × 1080 | Full transparent canvas, scene-specific widget placement |
 | `overlay-1280x720` | 1280 × 720 | Full transparent canvas with its own layouts |
-| `main-full` | 1920 × 1080 | Explanations, breaks, and transitions; opaque background |
-| `main-side` | 480 × 1080 | Alongside main content; transparent outside its panel |
-| `main-lower` | 1920 × 220 | Brief activity bar; transparent outside its panel |
+| `main-full` | 1920 × 1080 | Legacy compatibility: opaque full layout |
+| `main-side` | 480 × 1080 | Legacy compatibility: side panel |
+| `main-lower` | 1920 × 220 | Legacy compatibility: activity bar |
 
 Interface labels and sample broadcast content are Korean; display time is Asia/Seoul. Repository documentation is English.
 

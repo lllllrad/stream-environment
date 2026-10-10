@@ -68,7 +68,7 @@ Measurements include loopback request handling, browser delivery and DOM observa
 - Actual OBS Browser Source captures of each preset at 1080p and 720p, including representative moving video behind transparent sources.
 - The intended OBS source-shutdown/scene-refresh combinations, sleep/resume and multi-scene reload behavior in OBS's embedded browser.
 - A ten-second viewer comprehension exercise using real public activity wording, plus Korean/English readability at the final source placement.
-- Remote/cloud client integration. The local build intentionally does not expose a remote endpoint; an HTTPS/host/origin/access configuration must be implemented and tested before that deployment.
+- Actual second-computer agent integration on the intended LAN/VPN. The server now binds to all interfaces by default, but operating-system firewall rules, reachable addresses and the real remote client still need verification. Internet deployment requires an appropriate HTTPS/host/origin/access configuration.
 
 These pending checks do not affect the executed automated results; they prevent labeling the system OBS-certified, remotely deployed, or eight-hour validated.
 
@@ -84,7 +84,7 @@ The browser suite submits actual activity/recap/notice wording through MCP, veri
 
 ## Rendered proposal preview follow-up
 
-Domain and HTTP tests verify all preset projections, stale re-evaluation, unknown/restricted disclosure preservation, no storage/publication side effects, hidden output isolation and operator-only access. The MCP browser workflow opens before/after previews for full, side and lower presets, confirms the suggested wording remains absent from the public output, and then explicitly approves it. A private review screenshot is generated at `artifacts/proposal-rendered-review.png`.
+Domain and HTTP tests verify all preset projections, stale re-evaluation, unknown/restricted disclosure preservation, no storage/publication side effects, hidden output isolation and operator-only access. The current MCP browser workflow opens before/after previews for both overlay resolutions and switches Live/Away scenes, confirms the suggested wording remains absent from the public output, and then explicitly approves it. A private review screenshot is generated at `artifacts/proposal-rendered-review.png`.
 
 ## Session-export follow-up
 
@@ -99,3 +99,9 @@ Model tests verify a complete overlay/scene matrix, unique resolutions, cloned s
 Real browser tests exercise Unicode code-point ranges, measured ellipsis prefixes, clipping, minimum-size shrinking, frozen first-frame scroll, opaque-panel occlusion, private ungranted fields, transparent PNG generation and unavailable renderer recovery. Ungranted panels still occlude granted text while their original glyphs are absent from scoped output. HTTP tests cover private inspection, operator-only layout control and cookie CSRF. OpenAPI remains self-contained with resolvable references and unique operation IDs.
 
 Operator browser workflows move/resize widgets, review/save/reload exact geometry, add a status widget, edit its message, clone complete scene layouts and refresh content received while the editor is open. Proposal review renders private before/after content in a selected overlay without publication. The actual stdio MCP client discovers layouts and requests a candidate visibility report plus native PNG image block before submitting and approving a separate proposal. `artifacts/overlay-editor.png` was visually inspected; generated render assets remain ignored. Browser fonts/versions and OBS scene scaling can affect pixels; report ranges conservatively count fully visible glyph rectangles, and scrolling inspection describes only the first frame.
+
+## Operator UI cleanup
+
+Type checking and build pass; all 44 Edge cases pass. The UI opens directly in the overlay editor, while content management contains editorial fields without the duplicate legacy preset preview. Compact navigation has an accessible overlay icon. Decorative marketing copy, placeholder identity, obsolete preset controls and local-only labels are removed; operations settings retain diagnostics and sensitive-content cleanup. Legacy output routes and screenshot baselines remain unchanged for existing OBS sources.
+
+The browser suite verifies initial editor access, resolution/scene controls, content navigation and compact navigation. Hold/hide/restore is checked against an actual anonymous overlay page, with both resolutions reviewed before restoration. The MCP review workflow changes overlay resolution and scene, verifies unpublished candidate wording remains private, and then approves it. Operator screenshots are generated under `artifacts/`; no normal-server session content is changed by these isolated tests.

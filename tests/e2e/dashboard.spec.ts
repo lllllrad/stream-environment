@@ -36,7 +36,30 @@ async function seed(request: APIRequestContext, name = 'normal') {
   const outputUrl = async (preset = 'side') => `/display/main-${preset}`;
   return { session: s, producer, change, outputUrl };
 }
-async function login(page: Page) { await page.goto('/admin'); await page.getByLabel('운영자 키').fill(token); await page.getByRole('button', {name:'컨트롤 룸 열기'}).click(); await expect(page.getByRole('heading',{name:'컨트롤 룸',exact:true})).toBeVisible(); }
+async function login(page: Page, content = true) { await page.goto('/admin'); await page.getByLabel('운영자 키').fill(token); await page.getByRole('button', {name:'운영 화면 열기'}).click(); await expect(page.getByRole('heading',{name:'오버레이 편집',exact:true})).toBeVisible(); if(content) { await page.getByRole('button',{name:'내용 관리',exact:true}).click(); await expect(page.getByRole('heading',{name:'내용 관리',exact:true})).toBeVisible(); } }
+
+test('operator starts in the overlay editor and compact navigation retains an accessible icon',async({page,request})=>{
+  await seed(request,'normal'); await login(page,false);
+  await expect(page.getByLabel('오버레이',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('편집 씬')).toBeVisible();
+  await expect(page.getByText('OUTPUT PREVIEW',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('시청자가 보는 화면',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.overlay-editor-stage [data-field="/now/title"]')).toBeVisible();
+  await expect(page.locator('.overlay-editor-stage .visibility-details')).toBeVisible();
+  await page.screenshot({path:'artifacts/operator-overlay-home.png',fullPage:true});
+  await page.getByRole('button',{name:'내용 관리',exact:true}).click();
+  await expect(page.locator('.content-grid')).toBeVisible();
+  await expect(page.getByRole('button',{name:'레이아웃 편집',exact:true})).toBeVisible();
+  await expect(page.locator('.preview-panel')).toHaveCount(0);
+  await page.screenshot({path:'artifacts/operator-content.png',fullPage:true});
+  await page.getByRole('button',{name:'운영 설정',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'연결 진단',exact:true})).toBeVisible();
+  await expect(page.locator('.output-card')).toHaveCount(0);
+  await page.setViewportSize({width:720,height:1000});
+  const editor = page.getByRole('button',{name:'오버레이 편집',exact:true});
+  await expect(editor.locator('svg rect').first()).toBeVisible();
+  await editor.click(); await expect(page.getByLabel('편집 씬')).toBeVisible();
+});
 
 test('overlay editor drags, resizes, reviews and persists widget geometry and adds complete scene layouts',async({page,request})=>{
   const fixture=await seed(request,'normal');await login(page);await page.getByRole('button',{name:'오버레이 편집',exact:true}).click();
@@ -62,18 +85,22 @@ test('review compares candidate content inside a selected full-canvas overlay wi
   const fixture=await seed(request,'normal');const {config}=await api(request,'/admin/overlays');if(config.activeSceneId!=='live')await api(request,'/admin/scene',{sceneId:'live',expectedRevision:config.revision});await fixture.change([{op:'set_now',value:{title:'비공개 오버레이 검토 문구',detail:'검토용 내용입니다.',status:'in_progress',next:null}}],'propose');await login(page);await page.getByRole('button',{name:/^변경 제안/}).click();const card=page.locator('.proposal-card').last();await card.getByRole('button',{name:'송출 레이아웃 미리보기'}).click();await card.getByLabel('제안 오버레이').selectOption('overlay-1920x1080');await expect(card.locator('.proposal-visual-columns').locator('[data-field="/now/title"]').last()).toHaveText('비공개 오버레이 검토 문구');expect(JSON.stringify(await (await request.get('/api/v1/display/overlay-1920x1080/snapshot')).json())).not.toContain('비공개 오버레이 검토 문구');await expect(card.getByText(/잘린 필드/).first()).toBeVisible();
 });
 
-test('operator can create a session, edit and lock, compare hold preview, hide and restore', async ({ page, request }) => {
+test('operator edits stored content, holds actual output and reviews every overlay before restoring', async ({ page, request }) => {
   const fixture = await seed(request, 'minimal'); await login(page);
+  const display = await page.context().newPage(); await display.goto('/display/overlay-1920x1080'); await expect(display.locator('[data-field="/now/title"]')).toBeVisible();
   await page.getByRole('button', {name:'현재 활동 수정',exact:true}).click();
   await page.getByLabel('현재 활동 제목').fill('사람이 정정한 활동'); await page.getByRole('button',{name:'저장하고 잠금'}).click();
   await expect(page.locator('.now-editor-content h3')).toHaveText('사람이 정정한 활동');
   const state = await api(request, `/sessions/${fixture.session.id}/context`); expect(state.locks.some((l:any) => l.path === '/now')).toBeTruthy();
   await page.getByRole('button',{name:'게시 보류',exact:true}).click(); await expect(page.getByText('게시 보류 중',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'현재 활동 수정',exact:true}).click(); await page.getByLabel('현재 활동 제목').fill('다음 반영본의 활동'); await page.getByRole('button',{name:'저장하고 잠금'}).click();
-  await expect(page.locator('.preview-stage h2')).toHaveText('사람이 정정한 활동');
-  await page.getByRole('button',{name:'다음 반영본',exact:true}).click(); await expect(page.locator('.preview-stage h2')).toHaveText('다음 반영본의 활동');
-  await page.getByRole('button',{name:'긴급 숨김',exact:true}).click(); await page.getByRole('button',{name:'실제 송출본',exact:true}).click(); await expect(page.locator('.preview-stage .broadcast')).toHaveCount(0);
-  await page.getByRole('button',{name:'게시 재개',exact:true}).click(); await expect(page.getByRole('dialog')).toBeVisible(); await page.getByRole('button',{name:'이 내용을 공개하고 재개'}).click(); await expect(page.locator('.preview-stage h2')).toHaveText('다음 반영본의 활동');
+  await expect(display.locator('[data-field="/now/title"]')).toHaveText('사람이 정정한 활동');
+  await expect(page.locator('.now-editor-content h3')).toHaveText('다음 반영본의 활동');
+  await page.getByRole('button',{name:'긴급 숨김',exact:true}).click(); await expect(display.locator('.overlay-canvas')).toHaveCount(0);
+  await page.getByRole('button',{name:'게시 재개',exact:true}).click(); await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('.restore-preview .overlay-canvas')).toHaveCount(2);
+  await expect(page.locator('.restore-preview [data-field="/now/title"]')).toHaveText(['다음 반영본의 활동','다음 반영본의 활동']);
+  await page.getByRole('button',{name:'이 내용을 공개하고 재개'}).click(); await expect(display.locator('[data-field="/now/title"]')).toHaveText('다음 반영본의 활동'); await display.close();
   await page.screenshot({ path: 'artifacts/admin-control-room.png', fullPage: true });
 });
 test('operator can create and end sessions without any AI account', async ({page, request}) => {
@@ -123,11 +150,11 @@ test('external MCP content proposals stay private until UI approval and then ren
     await login(page); await page.getByRole('button',{name:/^변경 제안/}).click(); await expect(page.getByText('제안 내용',{exact:true})).toHaveCount(3);
     await page.getByRole('button',{name:'송출 레이아웃 미리보기',exact:true}).click();
     const visual = page.getByRole('region',{name:'제안 송출 미리보기'});
-    await expect(visual.locator('.proposal-visual-columns>div').nth(1).locator('.broadcast h2')).toHaveText('외부 시스템이 제안한 활동');
+    await expect(visual.locator('.proposal-visual-columns>div').nth(1).locator('[data-field="/now/title"]')).toHaveText('외부 시스템이 제안한 활동');
     expect(await display.content()).not.toContain('외부 시스템이 제안한 활동');
-    await visual.getByRole('button',{name:'사이드 패널',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','side');
-    await visual.getByRole('button',{name:'하단 바',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','lower'); await expect(visual.locator('.broadcast-recap')).toHaveCount(0);
-    await visual.getByRole('button',{name:'전체 화면',exact:true}).click(); await expect(visual.locator('.broadcast').first()).toHaveAttribute('data-preset','full');
+    await visual.getByLabel('제안 오버레이').selectOption('overlay-1280x720'); await expect(visual.locator('.overlay-canvas').first()).toHaveCSS('width','1280px');
+    await visual.getByLabel('제안 씬').selectOption('break'); await expect(visual.locator('[data-field="/now/title"]')).toHaveCount(0); await expect(visual.locator('[data-field="/widget/away/message"]')).toHaveCount(2);
+    await visual.getByLabel('제안 씬').selectOption('live'); await visual.getByLabel('제안 오버레이').selectOption('overlay-1920x1080'); await expect(visual.locator('[data-field="/now/title"]').last()).toHaveText('외부 시스템이 제안한 활동');
     await page.screenshot({path:'artifacts/proposal-rendered-review.png',fullPage:true});
     await expect(page.getByRole('button',{name:'승인하고 잠금'})).toBeDisabled(); await page.getByLabel('이 내용이 공개 가능한지 검토하고 명시적으로 허용합니다.').check(); await page.getByRole('button',{name:'승인하고 잠금'}).click(); await expect(page.getByText('검토할 제안이 없습니다',{exact:true})).toBeVisible();
     await expect(display.locator('.broadcast h2')).toHaveText('외부 시스템이 제안한 활동');
@@ -162,12 +189,13 @@ test('operator downloads filtered session records as JSON and literal Markdown, 
 });
 
 test('keyboard navigation, dialog Escape, reduced motion, and broadcast text contrast',async ({page,request})=>{
-  await seed(request,'normal');await login(page);await page.emulateMedia({reducedMotion:'reduce'});
+  const fixture=await seed(request,'normal');await login(page);await page.emulateMedia({reducedMotion:'reduce'});
   const create=page.getByRole('button',{name:'새 세션',exact:true});await create.focus();await page.keyboard.press('Enter');await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);await expect(create).toBeFocused();
-  const contrast=await page.locator('.preview-stage .broadcast').evaluate(el=>{
+  const display=await page.context().newPage();await display.goto(await fixture.outputUrl('full'));await expect(display.locator('.broadcast')).toBeVisible();
+  const contrast=await display.locator('.broadcast').evaluate(el=>{
     const root=getComputedStyle(el);const hex=(v:string)=>v.match(/[0-9a-f]{2}/gi)!.map(n=>parseInt(n,16)/255);const luminance=(rgb:number[])=>rgb.map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
     const bg=luminance(hex(root.getPropertyValue('--broadcast-bg').trim()));return ['--broadcast-ink','--broadcast-muted','--broadcast-accent'].map(name=>{const fg=luminance(hex(root.getPropertyValue(name).trim()));return (Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05);});
-  });expect(contrast.every(ratio=>ratio>=4.5)).toBeTruthy();
+  });expect(contrast.every(ratio=>ratio>=4.5)).toBeTruthy();await display.close();
 });
 for(const preset of ['full','side','lower'] as const){
   test(`720p scaled composition: ${preset}`,async({page,request})=>{

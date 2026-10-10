@@ -4,7 +4,7 @@
 
 Start the server with `pnpm start` after `pnpm build`. Authenticate at `/admin` using `ADMIN_TOKEN` or the key generated in `.data/operator.key`. The key is not printed, embedded in the web bundle, or sent in a URL. Keep the `.data` directory accessible only to the local account. On Windows, enforce protection through directory ACLs; a POSIX-style file mode alone does not establish a Windows ACL.
 
-Create a session with a title of up to 120 Unicode code points and a goal of up to 300. Long stored content is capped to the available broadcast lines; use the preview to check the visible wording. When no activity is running, the UI creates and starts it. A session created while another is running remains prepared; end the current activity before starting it from the prepared list. Only one session can be active. Pause/resume refers to activity state, independently of the streaming platform.
+The UI opens in **Overlay editor**. Use **Content management** to create a session with a title of up to 120 Unicode code points and a goal of up to 300. Check visible wording in the selected overlay/scene layout. When no activity is running, the UI creates and starts it. A session created while another is running remains prepared; end the current activity before starting it from the prepared list. Only one session can be active. Pause/resume refers to activity state, independently of the streaming platform.
 
 Enter the current activity, recap, and optional public items. Manual edits create locks that survive restarts and last until explicit unlock or session end. Use a field's **Locked** badge to enable automatic updates again. A producer cannot remove a lock. Ending removes the current-activity display while preserving the final recap; subsequent producer changes to that session are rejected.
 
@@ -12,7 +12,7 @@ Enter the current activity, recap, and optional public items. Manual edits creat
 
 For new compositions, use **Overlay editor** to manage whole-canvas transparent overlays, initially 1920 × 1080 and 1280 × 720. Arrange widgets once per application scene and resolution; copy `/display/overlay-1920x1080` or `/display/overlay-1280x720` into one OBS Browser Source at `(0, 0)` with matching dimensions. Application scenes switch every resolution together and remain independent of OBS scenes and session status. See the [complete editing, review and agent-inspection guide](overlays.md). The following table describes the compatible legacy presets.
 
-In **Output settings**, copy the fixed public URL for a preset into a new OBS Browser Source and enter the exact viewport. No login, output key, or output cookie is required:
+Existing OBS sources can continue using the legacy URLs listed below with their exact viewports. Preset selection and the duplicate preset preview have been removed from the operator UI; new sources use **Overlay editor**. No login, output key, or output cookie is required:
 
 | Preset | Width | Height | Background |
 | --- | ---: | ---: | --- |
@@ -37,7 +37,7 @@ Use `http://127.0.0.1:4310/display/main-full`, `http://127.0.0.1:4310/display/ma
 | Hidden | Valid changes may keep being stored | No content on any output |
 | Stop AI writes | Producer mutations are rejected; human edits still work | Publication follows the independent mode above |
 
-Emergency hide requires one click and no confirmation. Resuming from hold/hidden requires reviewing the next snapshot and explicitly confirming publication. It publishes one latest state, not a replay of changes received while held.
+Emergency hide requires one click and no confirmation. Resuming from hold/hidden loads a fresh next snapshot for every overlay in the selected broadcast scene and requires explicit publication confirmation. It publishes one latest state, not a replay of changes received while held.
 
 An event or work withdrawal is retained as a tombstone and immediately removed from frozen outputs, even during hold. Clearing a notice removes it from held output; expiry also takes precedence over hold. A producer cannot re-register a withdrawn item. The operator can explicitly correct/restore it, retaining its stable ID.
 
@@ -49,7 +49,7 @@ Register each client with the narrowest session, operation, and field grants it 
 
 Tokens are displayed once; store them in the client's secret store. Revoke a token from **Producers** to immediately block reads, writes, and receipt replays. The server stores hashes, not plaintext tokens. A heartbeat reports connectivity, while `observedAt` describes content freshness. Idle content does not imply a disconnected client. Send heartbeats every five seconds when connected.
 
-Review compares proposed values against current values. Open **Broadcast layout preview** to compare the current editorial content and the proposed result through the full, side or lower renderer. It is a private hypothetical preview, including while outputs are held/hidden; opening it never publishes or approves the proposal. Stale proposals are simulated against the latest session revision without altering their original base revision. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
+Review compares proposed values against current values. Open **Broadcast layout preview**, select an overlay and scene, and compare current editorial content against the proposed result, including measured visibility. It is a private hypothetical preview, including while outputs are held/hidden; opening it never publishes or approves the proposal. Stale proposals are simulated against the latest session revision without altering their original base revision. Stale proposals require an explicit current-state review acknowledgment. Unknown/restricted provenance requires a separate disclosure approval. Approval applies as an operator correction and locks affected fields. The server cannot certify the truth, ownership rights, or privacy suitability of a producer's text.
 
 ## Public output and reconnect
 
@@ -76,7 +76,7 @@ Use `/health/live` for process liveness and `/health/ready` for SQLite readiness
 
 ## Sensitive content cleanup and retention
 
-**Output settings → Sensitive-content cleanup** permanently purges a complete session after explicit confirmation. It deletes session text, associated proposals and receipts, clears applicable public snapshots, redacts matching audit bodies/reasons, records the purge with identifiers only, and compacts the DB. Purging the active session hides all outputs. This broad session-level procedure deliberately avoids accidentally leaving related copies of sensitive content behind.
+**Operations settings → Sensitive-content cleanup** permanently purges a complete session after explicit confirmation. This page also contains connection diagnostics. Purging deletes session text, associated proposals and receipts, clears applicable public snapshots, redacts matching audit bodies/reasons, records the purge with identifiers only, and compacts the DB. Purging the active session hides all outputs. This broad session-level procedure deliberately avoids accidentally leaving related copies of sensitive content behind.
 
 Separately delete or replace backups, exported screenshots, demo credential files, copied source URLs, and recordings containing sensitive content. SQLite secure deletion/compaction does not establish forensic erasure on every filesystem, SSD, snapshot, or backup. Already viewed or recorded material cannot be withdrawn from viewers by this app.
 
